@@ -250,11 +250,11 @@ export function SideBar(props: { className?: string }) {
       {...props}
     >
       <SideBarHeader
-        title="NextChat"
-        subTitle="Build your own AI assistant."
+        title="Chat（TenSafe）"
         logo={<ChatGptIcon />}
         shouldNarrow={shouldNarrow}
       >
+       {/* subTitle="Build your own AI assistant." */}
         <div className={styles["sidebar-header-bar"]}>
           <IconButton
             icon={<MaskIcon />}
@@ -284,7 +284,7 @@ export function SideBar(props: { className?: string }) {
             icon={<DiscoveryIcon />}
             text={shouldNarrow ? undefined : Locale.Discovery.Name}
             className={styles["sidebar-bar-button"]}
-            onClick={() => setshowDiscoverySelector(true)}
+            // onClick={() => setshowDiscoverySelector(true)}
             shadow
           />
         </div>
@@ -336,7 +336,7 @@ export function SideBar(props: { className?: string }) {
                 />
               </Link>
             </div>
-            <div className={styles["sidebar-action"]}>
+            {/* <div className={styles["sidebar-action"]}>
               <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
                 <IconButton
                   aria={Locale.Export.MessageFromChatGPT}
@@ -344,7 +344,7 @@ export function SideBar(props: { className?: string }) {
                   shadow
                 />
               </a>
-            </div>
+            </div> */}
           </>
         }
         secondaryAction={

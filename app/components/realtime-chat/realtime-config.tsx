@@ -55,7 +55,7 @@ export function RealtimeConfigList(props: {
 
   return (
     <>
-      <ListItem
+      {/* <ListItem
         title={Locale.Settings.Realtime.Enable.Title}
         subTitle={Locale.Settings.Realtime.Enable.SubTitle}
       >
@@ -167,7 +167,7 @@ export function RealtimeConfigList(props: {
             ></InputRange>
           </ListItem>
         </>
-      )}
+      )} */}
     </>
   );
 }

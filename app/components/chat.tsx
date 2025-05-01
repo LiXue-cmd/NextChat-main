@@ -613,21 +613,21 @@ export function ChatActions(props: {
             icon={<BottomIcon />}
           />
         )}
-        {props.hitBottom && (
+        {/* {props.hitBottom && (
           <ChatAction
             onClick={props.showPromptModal}
             text={Locale.Chat.InputActions.Settings}
             icon={<SettingsIcon />}
           />
-        )}
+        )} */}
 
-        {showUploadImage && (
+        {/* {showUploadImage && (
           <ChatAction
             onClick={props.uploadImage}
             text={Locale.Chat.InputActions.UploadImage}
             icon={props.uploading ? <LoadingButtonIcon /> : <ImageIcon />}
           />
-        )}
+        )} */}
         <ChatAction
           onClick={nextTheme}
           text={Locale.Chat.InputActions.Theme[theme]}
@@ -795,7 +795,7 @@ export function ChatActions(props: {
           />
         )}
 
-        {showPlugins(currentProviderName, currentModel) && (
+        {/* {showPlugins(currentProviderName, currentModel) && (
           <ChatAction
             onClick={() => {
               if (pluginStore.getAll().length == 0) {
@@ -807,7 +807,7 @@ export function ChatActions(props: {
             text={Locale.Plugin.Name}
             icon={<PluginIcon />}
           />
-        )}
+        )} */}
         {showPluginSelector && (
           <Selector
             multiple
@@ -1724,7 +1724,7 @@ function _Chat() {
                 }}
               />
             </div>
-            {!isMobileScreen && (
+            {/* {!isMobileScreen && (
               <div className="window-action-button">
                 <IconButton
                   icon={<RenameIcon />}
@@ -1734,7 +1734,7 @@ function _Chat() {
                   onClick={() => setIsEditingMessage(true)}
                 />
               </div>
-            )}
+            )} */}
             <div className="window-action-button">
               <IconButton
                 icon={<ExportIcon />}

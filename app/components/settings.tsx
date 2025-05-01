@@ -510,7 +510,7 @@ function SyncItems() {
 
   return (
     <>
-      <List>
+      {/* <List>
         <ListItem
           title={Locale.Settings.Sync.CloudState}
           subTitle={
@@ -571,7 +571,7 @@ function SyncItems() {
             />
           </div>
         </ListItem>
-      </List>
+      </List> */}
 
       {showSyncConfigModal && (
         <SyncConfigModal onClose={() => setShowSyncConfigModal(false)} />
@@ -1703,7 +1703,7 @@ export function Settings() {
 
         <SyncItems />
 
-        <List>
+        {/* <List>
           <ListItem
             title={Locale.Settings.Mask.Splash.Title}
             subTitle={Locale.Settings.Mask.Splash.SubTitle}
@@ -1738,9 +1738,9 @@ export function Settings() {
               }
             ></input>
           </ListItem>
-        </List>
+        </List> */}
 
-        <List>
+        {/* <List>
           <ListItem
             title={Locale.Settings.Prompt.Disable.Title}
             subTitle={Locale.Settings.Prompt.Disable.SubTitle}
@@ -1772,17 +1772,17 @@ export function Settings() {
               onClick={() => setShowPromptModal(true)}
             />
           </ListItem>
-        </List>
+        </List> */}
 
-        <List id={SlotID.CustomModel}>
-          {saasStartComponent}
-          {accessCodeComponent}
+        {/* <List id={SlotID.CustomModel}> */}
+          {/* {saasStartComponent} */}
+          {/* {accessCodeComponent}
 
           {!accessStore.hideUserApiKey && (
-            <>
-              {useCustomConfigComponent}
+            <> */}
+              {/* {useCustomConfigComponent} */}
 
-              {accessStore.useCustomConfig && (
+              {/* {accessStore.useCustomConfig && (
                 <>
                   <ListItem
                     title={Locale.Settings.Access.Provider.Title}
@@ -1825,9 +1825,9 @@ export function Settings() {
                 </>
               )}
             </>
-          )}
+          )} */}
 
-          {!shouldHideBalanceQuery && !clientConfig?.isApp ? (
+          {/* {!shouldHideBalanceQuery && !clientConfig?.isApp ? (
             <ListItem
               title={Locale.Settings.Usage.Title}
               subTitle={
@@ -1851,9 +1851,9 @@ export function Settings() {
                 />
               )}
             </ListItem>
-          ) : null}
+          ) : null} */}
 
-          <ListItem
+          {/* <ListItem
             title={Locale.Settings.Access.CustomModel.Title}
             subTitle={Locale.Settings.Access.CustomModel.SubTitle}
             vertical={true}
@@ -1870,10 +1870,10 @@ export function Settings() {
                 )
               }
             ></input>
-          </ListItem>
-        </List>
+          </ListItem> */}
+        {/* </List> */}
 
-        <List>
+        {/* <List>
           <ModelConfigList
             modelConfig={config.modelConfig}
             updateConfig={(updater) => {
@@ -1882,12 +1882,12 @@ export function Settings() {
               config.update((config) => (config.modelConfig = modelConfig));
             }}
           />
-        </List>
+        </List> */}
 
         {shouldShowPromptModal && (
           <UserPromptModal onClose={() => setShowPromptModal(false)} />
         )}
-        <List>
+        {/* <List>
           <RealtimeConfigList
             realtimeConfig={config.realtimeConfig}
             updateConfig={(updater) => {
@@ -1898,8 +1898,8 @@ export function Settings() {
               );
             }}
           />
-        </List>
-        <List>
+        </List> */}
+        {/* <List>
           <TTSConfigList
             ttsConfig={config.ttsConfig}
             updateConfig={(updater) => {
@@ -1908,9 +1908,9 @@ export function Settings() {
               config.update((config) => (config.ttsConfig = ttsConfig));
             }}
           />
-        </List>
+        </List> */}
 
-        <DangerItems />
+        {/* <DangerItems /> */}
       </div>
     </ErrorBoundary>
   );

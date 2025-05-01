@@ -23,7 +23,7 @@ export function ModelConfigList(props: {
 
   return (
     <>
-      <ListItem title={Locale.Settings.Model}>
+      {/* <ListItem title={Locale.Settings.Model}>
         <Select
           aria-label={Locale.Settings.Model}
           value={value}
@@ -68,8 +68,8 @@ export function ModelConfigList(props: {
             );
           }}
         ></InputRange>
-      </ListItem>
-      <ListItem
+      </ListItem> */}
+      {/* <ListItem
         title={Locale.Settings.TopP.Title}
         subTitle={Locale.Settings.TopP.SubTitle}
       >
@@ -108,9 +108,9 @@ export function ModelConfigList(props: {
             )
           }
         ></input>
-      </ListItem>
+      </ListItem> */}
 
-      {props.modelConfig?.providerName == ServiceProvider.Google ? null : (
+      {/* {props.modelConfig?.providerName == ServiceProvider.Google ? null : (
         <>
           <ListItem
             title={Locale.Settings.PresencePenalty.Title}
@@ -267,7 +267,7 @@ export function ModelConfigList(props: {
               </option>
             ))}
         </Select>
-      </ListItem>
+      </ListItem> */}
     </>
   );
 }

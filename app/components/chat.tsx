@@ -995,10 +995,43 @@ function _Chat() {
   const fontSize = config.fontSize;
   const fontFamily = config.fontFamily;
 
+  // 为@功能增加
+  const currentModel = session.mask.modelConfig.model;
+  const currentProviderName =
+    session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
+  const allModels = useAllModels();
+  const models = useMemo(() => {
+    const filteredModels = allModels.filter((m) => m.available);
+    const defaultModel = filteredModels.find((m) => m.isDefault);
+
+    if (defaultModel) {
+      const arr = [
+        defaultModel,
+        ...filteredModels.filter((m) => m !== defaultModel),
+      ];
+      return arr;
+    } else {
+      return filteredModels;
+    }
+  }, [allModels]);
+  const currentModelName = useMemo(() => {
+    const model = models.find(
+      (m) =>
+        m.name == currentModel &&
+        m?.provider?.providerName == currentProviderName,
+    );
+    return model?.displayName ?? "";
+  }, [models, currentModel, currentProviderName]);
+
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  
   const [showExport, setShowExport] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState("");
+  // 存储@后的新值
+  const [modifiedInput, setModifiedInput] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1091,13 +1124,23 @@ function _Chat() {
     // clear search results
     if (n === 0) {
       setPromptHints([]);
-    } else if (text.match(ChatCommandPrefix)) {
-      setPromptHints(chatCommands.search(text));
-    } else if (!config.disablePromptHint && n < SEARCH_TEXT_LIMIT) {
-      // check if need to trigger auto completion
-      if (text.startsWith("/")) {
-        let searchText = text.slice(1);
-        onSearch(searchText);
+      setModifiedInput('')
+    } else{
+      if(text.includes("@") &&  !modifiedInput){
+        console.log('true')
+        setShowModelSelector(true);
+      }else{    
+        console.log('false')    
+        setShowModelSelector(false);
+        if (text.match(ChatCommandPrefix)) {
+          setPromptHints(chatCommands.search(text));
+        } else if (!config.disablePromptHint && n < SEARCH_TEXT_LIMIT) {
+          // check if need to trigger auto completion
+          if (text.startsWith("/")) {
+            let searchText = text.slice(1);
+            onSearch(searchText);
+          }
+        }
       }
     }
   };
@@ -2039,6 +2082,7 @@ function _Chat() {
                   );
                 })}
             </div>
+            
             <div className={styles["chat-input-panel"]}>
               <PromptHints
                 prompts={promptHints}
@@ -2093,6 +2137,49 @@ function _Chat() {
                     fontFamily: config.fontFamily,
                   }}
                 />
+              {/* @功能新增 */}
+                {showModelSelector && (
+                  <Selector
+                    defaultSelectedValue={`${currentModel}@${currentProviderName}`}
+                    items={models.map((m) => ({
+                      title: `${m.displayName}${
+                        m?.provider?.providerName
+                          ? " (" + m?.provider?.providerName + ")"
+                          : ""
+                      }`,
+                      value: `${m.name}@${m?.provider?.providerName}`,
+                    }))}
+                    onClose={() => setShowModelSelector(false)}
+                    onSelection={(s) => {
+                      if (s.length === 0) return;
+                      const [model, providerName] = getModelProvider(s[0]);
+                      chatStore.updateTargetSession(session, (session) => {
+                        session.mask.modelConfig.model = model as ModelType;
+                        session.mask.modelConfig.providerName =
+                          providerName as ServiceProvider;
+                        session.mask.syncGlobalConfig = false;
+                      });
+                      if (providerName == "ByteDance") {
+                        const selectedModel = models.find(
+                          (m) =>
+                            m.name == model &&
+                            m?.provider?.providerName == providerName,
+                        );
+                        showToast(selectedModel?.displayName ?? "");
+                      } else {
+                        if(userInput === '@' && !modifiedInput){
+                          const newInput = userInput + " " + model + " ";
+                            setModifiedInput(() => {
+                            return newInput;
+                          });
+                        }
+                        setUserInput((prevInput) => prevInput + " " + model + " ");
+                        
+                      }
+                    }}
+                  />
+                )}
+
                 {attachImages.length != 0 && (
                   <div className={styles["attach-images"]}>
                     {attachImages.map((image, index) => {

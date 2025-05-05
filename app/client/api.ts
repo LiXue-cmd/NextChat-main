@@ -24,6 +24,7 @@ import { DeepSeekApi } from "./platforms/deepseek";
 import { XAIApi } from "./platforms/xai";
 import { ChatGLMApi } from "./platforms/glm";
 import { SiliconflowApi } from "./platforms/siliconflow";
+import Cookies from 'js-cookie';
 
 export const ROLES = ["system", "user", "assistant"] as const;
 export type MessageRole = (typeof ROLES)[number];
@@ -183,6 +184,28 @@ export class ClientApi {
   prompts() {}
 
   masks() {}
+  //查询历史记录
+  async getChatLogs() {
+    try {
+      const response = await fetch('http://140.143.208.64:8080/system/aiLog/getLog', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': Cookies.get('token')
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error('Error fetching chat logs:', error);
+      return null;
+    }
+  }
 
   async share(messages: ChatMessage[], avatarUrl: string | null = null) {
     const msgs = messages

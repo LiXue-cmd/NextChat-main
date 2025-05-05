@@ -1,9 +1,12 @@
+
+"use client"; // 确保只在客户端使用
 import {
   getMessageTextContent,
   isDalle3,
   safeLocalStorage,
   trimTopic,
 } from "../utils";
+// import { get } from 'zustand';
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
 import { nanoid } from "nanoid";
@@ -38,9 +41,12 @@ import { collectModelsWithDefaultModel } from "../utils/model";
 import { createEmptyMask, Mask } from "./mask";
 import { executeMcpAction, getAllTools, isMcpEnabled } from "../mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
+import Cookies from 'js-cookie';
+import { fetchCacheData } from '../services/cacheService';
+import { create } from 'zustand';
+import { useRouter } from 'next/router';
 
-const localStorage = safeLocalStorage();
-
+const safeStorage = safeLocalStorage();
 export type ChatMessageTool = {
   id: string;
   index?: number;
@@ -65,6 +71,25 @@ export type ChatMessage = RequestMessage & {
   isMcpResponse?: boolean;
 };
 
+// // 在应用启动时初始化数据
+// async function initializeApp() {
+//   try {
+//       const cacheData = await fetchCacheData();
+
+//       // 更新状态管理中的数据
+//       set((state) => ({
+//           ...state,
+//           chats: cacheData.chats || [],
+//           settings: cacheData.settings || {},
+//       }));
+//   } catch (error) {
+//       console.error('Failed to initialize app with cache data:', error);
+//       // 可以添加默认数据或错误处理逻辑
+//   }
+// }
+
+// // 在应用启动时调用初始化函数
+// initializeApp();
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {
   return {
     id: nanoid(),
@@ -229,6 +254,36 @@ const DEFAULT_CHAT_STATE = {
   lastInput: "",
 };
 
+// interface ChatState {
+//   chats: ChatSession[];
+//   settings: AppSettings;
+//   isLoading: boolean;
+//   // 其他状态...
+// }
+
+// export const c = create<ChatState>((set) => ({
+//   chats: [],
+//   settings: { theme: 'dark', language: 'zh' },
+//   isLoading: true, // 初始状态为加载中
+
+//   // 初始化应用
+//   initializeApp: async () => {
+//     set({ isLoading: true });
+//     try {
+//       const cacheData = await fetchCacheData();
+//       set((state) => ({
+//         ...state,
+//         chats: cacheData.chats || [],
+//         settings: cacheData.settings || {},
+//         isLoading: false,
+//       }));
+//     } catch (error) {
+//       console.error('Failed to initialize app with cache data:', error);
+//       set({ isLoading: false });
+//     }
+//   },
+// }));
+
 export const useChatStore = createPersistStore(
   DEFAULT_CHAT_STATE,
   (set, _get) => {
@@ -240,7 +295,7 @@ export const useChatStore = createPersistStore(
     }
 
     const methods = {
-      forkSession() {
+      forkSession: async () => {
         // 获取当前会话
         const currentSession = get().currentSession();
         if (!currentSession) return;
@@ -259,11 +314,25 @@ export const useChatStore = createPersistStore(
             ...currentSession.mask.modelConfig,
           },
         };
-
         set((state) => ({
           currentSessionIndex: 0,
           sessions: [newSession, ...state.sessions],
         }));
+      },
+
+      async initializeSession() {
+        const api = getClientApi();
+        const chatLogs = await api.getChatLogs();
+        console.log('chatLogs',chatLogs)
+
+        if (chatLogs.length !== 0) {
+          //查询历史记录
+          // 假设返回的数据格式为 { sessions: [ { id, topic, messages, ... }, ... ] }
+          set((state) => ({
+            ...state,
+            sessions: chatLogs
+          }));
+        }
       },
 
       clearSessions() {
@@ -402,6 +471,69 @@ export const useChatStore = createPersistStore(
         get().checkMcpJson(message);
 
         get().summarizeSession(false, targetSession);
+        // 保存聊天记录
+        // get().saveChatLogs()
+
+        // 保存聊天记录
+        // const api = getClientApi();
+        const chatLogs = targetSession.messages;
+        get().saveChatLogs(chatLogs);
+      },
+      // async saveChatLogs() {
+      //   // const router = useRouter();        
+      //   const session = get().currentSession();
+      //   console.log('session', session)
+      //   const messages = session.messages;
+      //   try {
+      //     const response = await fetch('http://140.143.208.64:8080/system/aiLog/save', {
+      //       method: 'POST',
+      //       headers: {
+      //         'Content-Type': 'application/json',
+      //         'Authorization': Cookies.get('token')
+      //       },
+      //       body: JSON.stringify(messages),
+      //     });
+      //     console.log('111', response)
+      //     if (response.ok) {
+      //       const data = await response.json();
+      //       console.log(data);
+      //       if (data.code == 200) {
+      //       console.log(data);
+      //       } else if (data.code == 401) {
+      //         // router.push('/login');
+      //         throw new Error(data.msg);
+      //       } else {
+      //         throw new Error(data.msg);
+      //       }
+      //     } else {
+      //       const errorData = await response.json();
+      //       console.error(errorData.message);
+      //     }
+      //   } catch (error) {
+      //     console.error('Error sending chat logs:', error);
+      //   }
+      // },
+      async saveChatLogs(chatLogs: any[]) {
+        try {
+          const response = await fetch('http://140.143.208.64:8080/system/aiLog/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': Cookies.get('token')
+            },
+            body: JSON.stringify(chatLogs)
+          });
+    
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+    
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          console.error('Error saving chat logs:', error);
+          return null;
+        }
       },
 
       async onUserInput(
@@ -674,9 +806,9 @@ export const useChatStore = createPersistStore(
         const [model, providerName] = modelConfig.compressModel
           ? [modelConfig.compressModel, modelConfig.compressProviderName]
           : getSummarizeModel(
-              session.mask.modelConfig.model,
-              session.mask.modelConfig.providerName,
-            );
+            session.mask.modelConfig.model,
+            session.mask.modelConfig.providerName,
+          );
         const api: ClientApi = getClientApi(providerName as ServiceProvider);
 
         // remove error messages if any
@@ -717,8 +849,8 @@ export const useChatStore = createPersistStore(
                 get().updateTargetSession(
                   session,
                   (session) =>
-                    (session.topic =
-                      message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC),
+                  (session.topic =
+                    message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC),
                 );
               }
             },
@@ -814,7 +946,7 @@ export const useChatStore = createPersistStore(
       },
       async clearAllData() {
         await indexedDBStorage.clear();
-        localStorage.clear();
+        safeStorage.clear();
         location.reload();
       },
       setLastInput(lastInput: string) {
@@ -855,7 +987,8 @@ export const useChatStore = createPersistStore(
         }
       },
     };
-
+// 初始化会话
+methods.initializeSession();
     return methods;
   },
   {

@@ -1,3 +1,4 @@
+"use client"; // 确保只在客户端使用
 import cn from "./cn";
 import en from "./en";
 import pt from "./pt";
@@ -24,7 +25,7 @@ import { safeLocalStorage } from "@/app/utils";
 import type { LocaleType } from "./cn";
 export type { LocaleType, PartialLocaleType } from "./cn";
 
-const localStorage = safeLocalStorage();
+const safeStorage = safeLocalStorage();
 
 const ALL_LANGS = {
   cn,
@@ -88,11 +89,11 @@ merge(fallbackLang, targetLang);
 export default fallbackLang as LocaleType;
 
 function getItem(key: string) {
-  return localStorage.getItem(key);
+  return safeStorage.getItem(key);
 }
 
 function setItem(key: string, value: string) {
-  localStorage.setItem(key, value);
+  safeStorage.setItem(key, value);
 }
 
 function getLanguage() {

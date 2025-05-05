@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+"use client"; // 添加这一行来声明这是一个客户端组件
 import styles from "./ui-lib.module.scss";
 import LoadingIcon from "../icons/three-dots.svg";
 import CloseIcon from "../icons/close.svg";

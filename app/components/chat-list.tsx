@@ -140,6 +140,7 @@ export function ChatList(props: { narrow?: boolean }) {
             ref={provided.innerRef}
             {...provided.droppableProps}
           >
+            {/* //查询历史记录数据展示 */}
             {sessions.map((item, i) => (
               <ChatItem
                 title={item.topic}

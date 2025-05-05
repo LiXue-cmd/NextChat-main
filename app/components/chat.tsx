@@ -126,7 +126,7 @@ import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
 
-const localStorage = safeLocalStorage();
+const safeStorage = safeLocalStorage();
 
 const ttsPlayer = createTTSPlayer();
 
@@ -1539,15 +1539,15 @@ function _Chat() {
   useEffect(() => {
     // try to load from local storage
     const key = UNFINISHED_INPUT(session.id);
-    const mayBeUnfinishedInput = localStorage.getItem(key);
+    const mayBeUnfinishedInput = safeStorage.getItem(key);
     if (mayBeUnfinishedInput && userInput.length === 0) {
       setUserInput(mayBeUnfinishedInput);
-      localStorage.removeItem(key);
+      safeStorage.removeItem(key);
     }
 
     const dom = inputRef.current;
     return () => {
-      localStorage.setItem(key, dom?.value ?? "");
+      safeStorage.setItem(key, dom?.value ?? "");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2254,5 +2254,6 @@ function _Chat() {
 export function Chat() {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
+  
   return <_Chat key={session.id}></_Chat>;
 }

@@ -7,6 +7,7 @@ import type { Metadata, Viewport } from "next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { GoogleTagManager, GoogleAnalytics } from "@next/third-parties/google";
 import { getServerSideConfig } from "./config/server";
+import { useChatStoreA } from './store/chat';
 
 export const metadata: Metadata = {
   title: "NextChat",
@@ -32,6 +33,17 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  console.log('children',children)
+//   const isLoading = useChatStoreA((state) => state.isLoading)
+//   if (isLoading) {
+//     return (
+//         <div className="flex items-center justify-center h-screen bg-gray-900">
+//             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white"></div>
+//             <p className="ml-4 text-white text-lg">加载中...</p>
+//         </div>
+//     );
+// }
+
   const serverConfig = getServerSideConfig();
 
   return (

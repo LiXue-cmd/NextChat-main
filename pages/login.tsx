@@ -40,7 +40,8 @@ const LoginPage = () => {
       // token
       // res.setHeader('Set-Cookie', `token=${token}; Path=/; Max-Age=3600*24*7`);
       const data = await res.json();
-      if (data.code == 200) {
+      if (data.code == 200) {        
+        Cookies.set('amis_id',JSON.parse(data.query).amis_id)
         Cookies.set('token', 'Bearer ' + data.token)
         router.push('/'); // 登录成功后跳转到聊天页面
       } else {

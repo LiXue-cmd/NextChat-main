@@ -1,16 +1,19 @@
-import { StateStorage } from "zustand/middleware";
+
+"use client"; // 确保只在客户端使用import { StateStorage } from "zustand/middleware";
 import { get, set, del, clear } from "idb-keyval";
 import { safeLocalStorage } from "@/app/utils";
 
-const localStorage = safeLocalStorage();
+
+
+const safeStorage = safeLocalStorage();
 
 class IndexedDBStorage implements StateStorage {
   public async getItem(name: string): Promise<string | null> {
     try {
-      const value = (await get(name)) || localStorage.getItem(name);
+      const value = (await get(name)) || safeStorage.getItem(name);
       return value;
     } catch (error) {
-      return localStorage.getItem(name);
+      return safeStorage.getItem(name);
     }
   }
 
@@ -23,7 +26,7 @@ class IndexedDBStorage implements StateStorage {
       }
       await set(name, value);
     } catch (error) {
-      localStorage.setItem(name, value);
+      safeStorage.setItem(name, value);
     }
   }
 
@@ -31,7 +34,7 @@ class IndexedDBStorage implements StateStorage {
     try {
       await del(name);
     } catch (error) {
-      localStorage.removeItem(name);
+      safeStorage.removeItem(name);
     }
   }
 
@@ -39,7 +42,7 @@ class IndexedDBStorage implements StateStorage {
     try {
       await clear();
     } catch (error) {
-      localStorage.clear();
+      safeStorage.clear();
     }
   }
 }

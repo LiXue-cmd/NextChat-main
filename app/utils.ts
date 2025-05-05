@@ -1,3 +1,5 @@
+"use client"; // 添加这一行来声明这是一个客户端组件
+
 import { useEffect, useState } from "react";
 import { showToast } from "./components/ui-lib";
 import Locale from "./locales";

@@ -1749,7 +1749,11 @@ function _Chat() {
               )}
               onClickCapture={() => setIsEditingMessage(true)}
             >
-              {!session.topic ? DEFAULT_TOPIC : session.topic}
+              {/* {session.messages[0].content ? session.messages[0].content : DEFAULT_TOPIC} */}
+              {session.messages?.length > 0 
+    ? session.messages[0].content 
+    : session.topic || DEFAULT_TOPIC}
+              {/* {!session.topic ? DEFAULT_TOPIC : session.topic} */}
             </div>
             <div className="window-header-sub-title">
               {Locale.Chat.SubTitle(session.messages.length)}

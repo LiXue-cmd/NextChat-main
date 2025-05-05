@@ -100,6 +100,42 @@ export interface ChatSession {
   mask: Mask;
 }
 
+interface BackendChatLog {
+  id: string;
+  topic: string;
+  messages: BackendChatMessage[];
+  mask: BackendMask;
+  memoryPrompt: string;
+  lastUpdate: number;
+  lastSummarizeIndex: number;
+  clearContextIndex?: number;
+}
+
+interface BackendChatMessage {
+  id: string;
+  role: string;
+  content: string;
+  date: string;
+  model?: string;
+  streaming?: boolean;
+  isError?: boolean;
+  tools?: any[];
+  audio_url?: string;
+  isMcpResponse?: boolean;
+}
+
+interface BackendMask {
+  id?: string;
+  name?: string;
+  modelConfig: {
+    model: string;
+    providerName: string;
+    temperature: number;
+    max_tokens: number;
+    // 其他配置字段...
+  };
+}
+
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
 export const BOT_HELLO: ChatMessage = createMessage({
   role: "assistant",
@@ -286,7 +322,6 @@ export const useChatStore = createPersistStore(
         // 从接口获取历史会话数据
         const backendLogs: BackendChatLog[] = await api.getChatLogs();
         console.log('[初始化会话] 接口返回数据', backendLogs);
-      
         // 转换为前端 `ChatSession` 格式
         const sessions = backendLogs.map((backendLog) => ({
           // 使用后端数据覆盖默认值
@@ -388,6 +423,10 @@ export const useChatStore = createPersistStore(
           currentSessionIndex: 0,
           sessions: [session].concat(state.sessions),
         }));
+
+        // 新增：保存所有会话
+        get().saveChatLogs(get().sessions);
+        
       },
 
       nextSession(delta: number) {
@@ -427,6 +466,9 @@ export const useChatStore = createPersistStore(
           currentSessionIndex: nextIndex,
           sessions,
         }));
+
+        // 新增：保存所有会话
+        get().saveChatLogs(sessions);
 
         showToast(
           Locale.Home.DeleteToast,
@@ -468,31 +510,64 @@ export const useChatStore = createPersistStore(
         get().summarizeSession(false, targetSession);
 
         // 保存聊天记录
-        const chatLogs = targetSession.messages;
-        get().saveChatLogs(chatLogs);
+        // const chatLogs = targetSession.messages;
+        // get().saveChatLogs(chatLogs);
       },
-
+      // mask: {
+      //   id: session.mask.id,
+      //   name: session.mask.name,
+      //   modelConfig: {
+      //     model: session.mask.modelConfig.model,
+      //     providerName: session.mask.modelConfig.providerName,
+      //     // 其他配置字段...
+      //   },
+      // },
       async saveChatLogs(sessions: ChatSession[]) {
         try {
           // 将前端会话转换为后端期望的格式
           const backendFormat = sessions.map((session) => ({
             id: session.id,
             topic: session.topic,
-            messages: session.messages, // 直接传递消息数组（需与后端字段一致）
-            mask: session.mask, // 模型配置
-            memoryPrompt: session.memoryPrompt, // 记忆提示
-            lastUpdate: session.lastUpdate, // 最后更新时间
-            lastSummarizeIndex: session.lastSummarizeIndex, // 最后总结索引
-            clearContextIndex: session.clearContextIndex, // 清空上下文索引
+            messages: session.messages.map((msg) => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              date: msg.date,
+              model: msg.model,
+              streaming: msg.streaming,
+              isError: msg.isError,
+              tools: msg.tools,
+              audio_url: msg.audio_url,
+              isMcpResponse: msg.isMcpResponse,
+            })),
+            mask: {
+              id: session.mask.id,
+              name: session.mask.name,
+              modelConfig: {
+                model: session.mask.modelConfig.model,
+                providerName: session.mask.modelConfig.providerName,
+                temperature: session.mask.modelConfig.temperature,
+                max_tokens: session.mask.modelConfig.max_tokens,
+                historyMessageCount: session.mask.modelConfig.historyMessageCount,
+                compressMessageLengthThreshold: session.mask.modelConfig.compressMessageLengthThreshold,
+                sendMemory: session.mask.modelConfig.sendMemory,
+                // 添加其他需要的模型配置字段...
+              },
+            },
+            memoryPrompt: session.memoryPrompt,
+            lastUpdate: session.lastUpdate,
+            lastSummarizeIndex: session.lastSummarizeIndex,
+            clearContextIndex: session.clearContextIndex,
           }));
       
+          // 发送到后端
           const response = await fetch('http://140.143.208.64:8080/system/aiLog/save', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': Cookies.get('token') || '',
             },
-            body: JSON.stringify({ logs: backendFormat }), // 按后端要求包裹数据（如`logs`数组）
+            body: JSON.stringify({ logs: backendFormat }), // 按后端要求包裹数据
           });
       
           if (!response.ok) throw new Error(`保存失败: HTTP ${response.status}`);
@@ -578,6 +653,9 @@ export const useChatStore = createPersistStore(
               botMessage.content = message;
               botMessage.date = new Date().toLocaleString();
               get().onNewMessage(botMessage, session);
+
+              // 新增：保存当前会话
+              await get().saveChatLogs([session]);
             }
             ChatControllerPool.remove(session.id, botMessage.id);
           },

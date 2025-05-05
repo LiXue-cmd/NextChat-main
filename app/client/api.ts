@@ -24,6 +24,7 @@ import { DeepSeekApi } from "./platforms/deepseek";
 import { XAIApi } from "./platforms/xai";
 import { ChatGLMApi } from "./platforms/glm";
 import { SiliconflowApi } from "./platforms/siliconflow";
+import Cookies from 'js-cookie';
 
 export const ROLES = ["system", "user", "assistant"] as const;
 export type MessageRole = (typeof ROLES)[number];
@@ -178,12 +179,34 @@ export class ClientApi {
     }
   }
 
-  config() {}
+  config() { }
 
-  prompts() {}
+  prompts() { }
 
-  masks() {}
+  masks() { }
+  
+  //查询历史记录
+  async getChatLogs() {
+    try {
+      const response = await fetch('http://140.143.208.64:8080/system/aiLog/getLog', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': Cookies.get('token')
+        }
+      });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error('Error fetching chat logs:', error);
+      return null;
+    }
+  }
   async share(messages: ChatMessage[], avatarUrl: string | null = null) {
     const msgs = messages
       .map((m) => ({
@@ -269,28 +292,28 @@ export function getHeaders(ignoreHeaders: boolean = false) {
     const apiKey = isGoogle
       ? accessStore.googleApiKey
       : isAzure
-      ? accessStore.azureApiKey
-      : isAnthropic
-      ? accessStore.anthropicApiKey
-      : isByteDance
-      ? accessStore.bytedanceApiKey
-      : isAlibaba
-      ? accessStore.alibabaApiKey
-      : isMoonshot
-      ? accessStore.moonshotApiKey
-      : isXAI
-      ? accessStore.xaiApiKey
-      : isDeepSeek
-      ? accessStore.deepseekApiKey
-      : isChatGLM
-      ? accessStore.chatglmApiKey
-      : isSiliconFlow
-      ? accessStore.siliconflowApiKey
-      : isIflytek
-      ? accessStore.iflytekApiKey && accessStore.iflytekApiSecret
-        ? accessStore.iflytekApiKey + ":" + accessStore.iflytekApiSecret
-        : ""
-      : accessStore.openaiApiKey;
+        ? accessStore.azureApiKey
+        : isAnthropic
+          ? accessStore.anthropicApiKey
+          : isByteDance
+            ? accessStore.bytedanceApiKey
+            : isAlibaba
+              ? accessStore.alibabaApiKey
+              : isMoonshot
+                ? accessStore.moonshotApiKey
+                : isXAI
+                  ? accessStore.xaiApiKey
+                  : isDeepSeek
+                    ? accessStore.deepseekApiKey
+                    : isChatGLM
+                      ? accessStore.chatglmApiKey
+                      : isSiliconFlow
+                        ? accessStore.siliconflowApiKey
+                        : isIflytek
+                          ? accessStore.iflytekApiKey && accessStore.iflytekApiSecret
+                            ? accessStore.iflytekApiKey + ":" + accessStore.iflytekApiSecret
+                            : ""
+                          : accessStore.openaiApiKey;
     return {
       isGoogle,
       isAzure,
@@ -313,10 +336,10 @@ export function getHeaders(ignoreHeaders: boolean = false) {
     return isAzure
       ? "api-key"
       : isAnthropic
-      ? "x-api-key"
-      : isGoogle
-      ? "x-goog-api-key"
-      : "Authorization";
+        ? "x-api-key"
+        : isGoogle
+          ? "x-goog-api-key"
+          : "Authorization";
   }
 
   const {

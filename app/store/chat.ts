@@ -39,6 +39,11 @@ import { createEmptyMask, Mask } from "./mask";
 import { executeMcpAction, getAllTools, isMcpEnabled } from "../mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 
+import Cookies from 'js-cookie';
+import { fetchCacheData } from '../services/cacheService';
+import { create } from 'zustand';
+import { useRouter } from 'next/router';
+
 const localStorage = safeLocalStorage();
 
 export type ChatMessageTool = {
@@ -266,6 +271,21 @@ export const useChatStore = createPersistStore(
         }));
       },
 
+      async initializeSession() {
+        const api = getClientApi();
+        const chatLogs = await api.getChatLogs();
+        console.log('chatLogs',chatLogs)
+
+        // if (chatLogs.length !== 0) {
+        //   //查询历史记录
+        //   // 假设返回的数据格式为 { sessions: [ { id, topic, messages, ... }, ... ] }
+        //   set((state) => ({
+        //     ...state,
+        //     sessions: chatLogs
+        //   }));
+        // }
+      },
+
       clearSessions() {
         set(() => ({
           sessions: [createEmptySession()],
@@ -402,6 +422,36 @@ export const useChatStore = createPersistStore(
         get().checkMcpJson(message);
 
         get().summarizeSession(false, targetSession);
+
+        // 保存聊天记录
+        const chatLogs = targetSession.messages;
+        get().saveChatLogs(chatLogs);
+      },
+
+      async saveChatLogs(chatLogs: any[]) {
+        try {
+          let params = {
+            data:chatLogs
+          }
+          const response = await fetch('http://140.143.208.64:8080/system/aiLog/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': Cookies.get('token')
+            },
+            body: JSON.stringify(params)
+          });
+    
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+    
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          console.error('Error saving chat logs:', error);
+          return null;
+        }
       },
 
       async onUserInput(
@@ -855,7 +905,8 @@ export const useChatStore = createPersistStore(
         }
       },
     };
-
+  // 初始化会话
+  methods.initializeSession();
     return methods;
   },
   {

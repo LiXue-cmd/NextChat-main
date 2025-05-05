@@ -119,8 +119,7 @@ function createEmptySession(): ChatSession {
     },
     lastUpdate: Date.now(),
     lastSummarizeIndex: 0,
-
-    mask: createEmptyMask(),
+    mask: createEmptyMask(), // 确保 mask 初始化正确
   };
 }
 
@@ -234,6 +233,14 @@ const DEFAULT_CHAT_STATE = {
   lastInput: "",
 };
 
+interface ApiChatLog {
+  id: string;
+  topic: string;
+  messages: ChatMessage[]; // 需与前端 `ChatMessage` 格式一致
+  mask: Mask; // 模型配置
+  // 其他字段如 memoryPrompt、lastUpdate 等
+}
+
 export const useChatStore = createPersistStore(
   DEFAULT_CHAT_STATE,
   (set, _get) => {
@@ -245,45 +252,81 @@ export const useChatStore = createPersistStore(
     }
 
     const methods = {
-      forkSession() {
-        // 获取当前会话
-        const currentSession = get().currentSession();
-        if (!currentSession) return;
+      // forkSession() {
+      //   // 获取当前会话
+      //   const currentSession = get().currentSession();
+      //   console.log('currentSession', currentSession)
+      //   if (!currentSession) return;
+      //   console.log('currentSession', currentSession)
+      //   const newSession = createEmptySession();
 
-        const newSession = createEmptySession();
+      //   newSession.topic = currentSession.mtopic;
+      //   newSession.topic = currentSession.messages[0].content;
+      //   // 深拷贝消息
+      //   newSession.messages = currentSession.messages.map((msg) => ({
+      //     ...msg,
+      //     id: nanoid(), // 生成新的消息 ID
+      //   }));
+      //   newSession.mask = {
+      //     ...currentSession.mask,
+      //     modelConfig: {
+      //       ...currentSession.mask.modelConfig,
+      //     },
+      //   };
 
-        newSession.topic = currentSession.topic;
-        // 深拷贝消息
-        newSession.messages = currentSession.messages.map((msg) => ({
-          ...msg,
-          id: nanoid(), // 生成新的消息 ID
-        }));
-        newSession.mask = {
-          ...currentSession.mask,
-          modelConfig: {
-            ...currentSession.mask.modelConfig,
-          },
-        };
-
-        set((state) => ({
-          currentSessionIndex: 0,
-          sessions: [newSession, ...state.sessions],
-        }));
-      },
+      //   console.log('newSession', newSession)
+      //   set((state) => ({
+      //     currentSessionIndex: 0,
+      //     sessions: [newSession, ...state.sessions],
+      //   }));
+      // },
 
       async initializeSession() {
         const api = getClientApi();
-        const chatLogs = await api.getChatLogs();
-        console.log('chatLogs',chatLogs)
-
-        // if (chatLogs.length !== 0) {
-        //   //查询历史记录
-        //   // 假设返回的数据格式为 { sessions: [ { id, topic, messages, ... }, ... ] }
-        //   set((state) => ({
-        //     ...state,
-        //     sessions: chatLogs
-        //   }));
-        // }
+        // 从接口获取历史会话数据
+        const backendLogs: BackendChatLog[] = await api.getChatLogs();
+        console.log('[初始化会话] 接口返回数据', backendLogs);
+      
+        // 转换为前端 `ChatSession` 格式
+        const sessions = backendLogs.map((backendLog) => ({
+          // 使用后端数据覆盖默认值
+          id: backendLog.id,
+          topic: backendLog.topic || DEFAULT_TOPIC, // 无主题时使用默认
+          memoryPrompt: backendLog.memoryPrompt || "", // 无记忆提示时为空
+          
+          // 关键修改：增加对 messages 的空值检查
+          messages: (backendLog.messages || []).map((msg) => ({
+            // 确保消息ID存在（后端可能未返回，生成新ID）
+            id: msg.id || nanoid(),
+            // 其他字段直接使用后端数据
+            role: msg.role || "user", // 默认为用户消息
+            content: msg.content || "", // 内容不能为空
+            date: msg.date || new Date().toLocaleString(), // 无时间时用当前时间
+            streaming: msg.streaming || false,
+            isError: msg.isError || false,
+            model: msg.model, // 模型信息
+            tools: msg.tools || [], // 工具列表
+            isMcpResponse: msg.isMcpResponse || false, // MCP响应标记
+          })),
+          
+          stat: {
+            // 统计信息（若后端未返回，初始化时重置）
+            tokenCount: 0,
+            wordCount: 0,
+            charCount: 0,
+          },
+          lastUpdate: backendLog.lastUpdate || Date.now(), // 最后更新时间
+          lastSummarizeIndex: backendLog.lastSummarizeIndex || 0, // 最后总结索引
+          clearContextIndex: backendLog.clearContextIndex, // 清空上下文索引
+          // 合并模型配置：使用后端返回的mask，若无则创建空mask
+          mask: backendLog.mask || createEmptyMask(),
+        }));
+      
+        // 设置会话状态：优先使用接口数据，无数据时创建空会话
+        set((state) => ({
+          currentSessionIndex: 0,
+          sessions: sessions.length > 0 ? sessions : [createEmptySession()],
+        }));
       },
 
       clearSessions() {
@@ -398,17 +441,18 @@ export const useChatStore = createPersistStore(
       },
 
       currentSession() {
-        let index = get().currentSessionIndex;
+        const index = get().currentSessionIndex;
         const sessions = get().sessions;
-
-        if (index < 0 || index >= sessions.length) {
-          index = Math.min(sessions.length - 1, Math.max(0, index));
-          set(() => ({ currentSessionIndex: index }));
+        if (index < 0 || sessions.length === 0) {
+          // 创建新的空会话（如果历史会话加载失败）
+          const newSession = createEmptySession();
+          set(() => ({
+            currentSessionIndex: 0,
+            sessions: [newSession],
+          }));
+          return newSession;
         }
-
-        const session = sessions[index];
-
-        return session;
+        return sessions[index];
       },
 
       onNewMessage(message: ChatMessage, targetSession: ChatSession) {
@@ -428,28 +472,36 @@ export const useChatStore = createPersistStore(
         get().saveChatLogs(chatLogs);
       },
 
-      async saveChatLogs(chatLogs: any[]) {
+      async saveChatLogs(sessions: ChatSession[]) {
         try {
-          let params = {
-            data:chatLogs
-          }
+          // 将前端会话转换为后端期望的格式
+          const backendFormat = sessions.map((session) => ({
+            id: session.id,
+            topic: session.topic,
+            messages: session.messages, // 直接传递消息数组（需与后端字段一致）
+            mask: session.mask, // 模型配置
+            memoryPrompt: session.memoryPrompt, // 记忆提示
+            lastUpdate: session.lastUpdate, // 最后更新时间
+            lastSummarizeIndex: session.lastSummarizeIndex, // 最后总结索引
+            clearContextIndex: session.clearContextIndex, // 清空上下文索引
+          }));
+      
           const response = await fetch('http://140.143.208.64:8080/system/aiLog/save', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': Cookies.get('token')
+              'Authorization': Cookies.get('token') || '',
             },
-            body: JSON.stringify(params)
+            body: JSON.stringify({ logs: backendFormat }), // 按后端要求包裹数据（如`logs`数组）
           });
-    
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-    
+      
+          if (!response.ok) throw new Error(`保存失败: HTTP ${response.status}`);
           const data = await response.json();
+          console.log('[保存会话] 成功', data);
           return data;
         } catch (error) {
-          console.error('Error saving chat logs:', error);
+          console.error('[保存会话] 失败', error);
+          showToast(Locale.Home.SaveError, error);
           return null;
         }
       },
@@ -724,9 +776,9 @@ export const useChatStore = createPersistStore(
         const [model, providerName] = modelConfig.compressModel
           ? [modelConfig.compressModel, modelConfig.compressProviderName]
           : getSummarizeModel(
-              session.mask.modelConfig.model,
-              session.mask.modelConfig.providerName,
-            );
+            session.mask.modelConfig.model,
+            session.mask.modelConfig.providerName,
+          );
         const api: ClientApi = getClientApi(providerName as ServiceProvider);
 
         // remove error messages if any
@@ -767,8 +819,8 @@ export const useChatStore = createPersistStore(
                 get().updateTargetSession(
                   session,
                   (session) =>
-                    (session.topic =
-                      message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC),
+                  (session.topic =
+                    message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC),
                 );
               }
             },
@@ -905,8 +957,8 @@ export const useChatStore = createPersistStore(
         }
       },
     };
-  // 初始化会话
-  methods.initializeSession();
+    // 初始化会话
+    methods.initializeSession();
     return methods;
   },
   {

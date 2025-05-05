@@ -26,8 +26,6 @@ const LoginPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, rememberMe }),
       });
-      console.log('res', res)
-      // Cookies.set('token', 'Bearer ' + res.token);
       if(rememberMe){
         Cookies.set('username', username);
         Cookies.set('password', password);
@@ -42,12 +40,12 @@ const LoginPage = () => {
       // token
       // res.setHeader('Set-Cookie', `token=${token}; Path=/; Max-Age=3600*24*7`);
       const data = await res.json();
-      console.log('data', data)
-      // if (data.code == 200) {
-      //   router.push('/'); // 登录成功后跳转到聊天页面
-      // } else {
-      //   setError('用户名或密码错误');
-      // }
+      if (data.code == 200) {
+        Cookies.set('token', 'Bearer ' + data.token)
+        router.push('/'); // 登录成功后跳转到聊天页面
+      } else {
+        setError('用户名或密码错误');
+      }
     } catch (error) {
       setError('登录失败，请稍后重试');
     }

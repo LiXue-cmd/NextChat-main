@@ -93,6 +93,7 @@ export enum StoreKey {
   Prompt = "prompt-store",
   Update = "chat-update",
   Sync = "sync",
+  
   SdList = "sd-list",
   Mcp = "mcp-store",
 }

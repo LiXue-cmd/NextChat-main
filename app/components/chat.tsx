@@ -2255,5 +2255,10 @@ export function Chat() {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   
-  return <_Chat key={session.id}></_Chat>;
+  if (!session) {
+    // 处理没有会话的情况，例如显示一个提示信息
+    return <p>No active session found.</p>;
+  }
+
+  return <Chat key={session.id}></Chat>;
 }

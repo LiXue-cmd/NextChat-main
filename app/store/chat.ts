@@ -325,14 +325,14 @@ export const useChatStore = createPersistStore(
         const chatLogs = await api.getChatLogs();
         console.log('chatLogs',chatLogs)
 
-        if (chatLogs.length !== 0) {
+        // if (chatLogs.length !== 0) {
           //查询历史记录
           // 假设返回的数据格式为 { sessions: [ { id, topic, messages, ... }, ... ] }
           set((state) => ({
             ...state,
             sessions: chatLogs
           }));
-        }
+        // }
       },
 
       clearSessions() {
@@ -450,14 +450,21 @@ export const useChatStore = createPersistStore(
         let index = get().currentSessionIndex;
         const sessions = get().sessions;
 
-        if (index < 0 || index >= sessions.length) {
-          index = Math.min(sessions.length - 1, Math.max(0, index));
-          set(() => ({ currentSessionIndex: index }));
+        // if (index < 0 || index >= sessions.length) {
+        //   index = Math.min(sessions.length - 1, Math.max(0, index));
+        //   set(() => ({ currentSessionIndex: index }));
+        // }
+
+        // const session = sessions[index];
+
+        if (sessions.length > 0) {
+          // index = Math.min(sessions.length - 1, Math.max(0, index)) 
+          // set(() => ({ currentSessionIndex: index }))
+          return sessions[0]; // 假设第一个会话为当前会话
         }
+        return null;
 
-        const session = sessions[index];
-
-        return session;
+        // return session;
       },
 
       onNewMessage(message: ChatMessage, targetSession: ChatSession) {

@@ -5,7 +5,8 @@ import {
   trimTopic,
 } from "../utils";
 
-import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
+// 移除 indexedDBStorage 导入
+// import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
 import { nanoid } from "nanoid";
 import type {
   ClientApi,
@@ -44,7 +45,8 @@ import { fetchCacheData } from '../services/cacheService';
 import { create } from 'zustand';
 import { useRouter } from 'next/router';
 
-const localStorage = safeLocalStorage();
+// 移除 localStorage 引用
+// const localStorage = safeLocalStorage();
 
 export type ChatMessageTool = {
   id: string;
@@ -295,18 +297,18 @@ export const useChatStore = createPersistStore(
           // 从接口获取历史会话数据
           const backendLogs = await api.getChatLogs();
           console.log('[初始化会话] 接口返回数据', backendLogs);
-      
+
           // 关键修改：检查 backendLogs 是否为数组
           if (!Array.isArray(backendLogs)) {
             console.error('[错误] 接口返回非数组数据:', backendLogs);
             throw new Error('获取会话数据失败');
           }
-      
+
           // 转换为前端 `ChatSession` 格式
           const sessions = backendLogs.map((backendLog) => ({
             // 使用后端数据覆盖默认值
             id: backendLog.id,
-            userId:backendLog.userId || "",
+            userId: backendLog.userId || "",
             topic: backendLog.topic || DEFAULT_TOPIC,
             messageId: backendLog.messageId || nanoid(),
 
@@ -335,14 +337,14 @@ export const useChatStore = createPersistStore(
 
                 temperature: backendLog.mask.modelConfig.temperature || 1,
                 providerName: backendLog.mask.modelConfig.providerName || '',
-                historyMessageCount:  backendLog.mask.modelConfig.historyMessageCount || 5,
+                historyMessageCount: backendLog.mask.modelConfig.historyMessageCount || 5,
                 compressMessageLengthThreshold: backendLog.mask.modelConfig.compressMessageLengthThreshold || 1000,
                 // top_p: backendLog.mask.modelConfig.top_p || 1,
               },
               // context: backendLog.mask.context || [],
             },
           }));
-      
+
           set((state) => ({
             currentSessionIndex: 0,
             sessions: sessions.length > 0 ? sessions : [createEmptySession()],
@@ -419,8 +421,8 @@ export const useChatStore = createPersistStore(
         }));
 
         // 新增：保存所有会话
-        get().saveChatLogs(get().sessions);
-        
+        // get().saveChatLogs(get().sessions);
+
       },
 
       nextSession(delta: number) {
@@ -461,8 +463,8 @@ export const useChatStore = createPersistStore(
           sessions,
         }));
 
-        // 新增：保存所有会话
-        get().saveChatLogs(sessions);
+        // 删除：保存所有会话
+        get().saveChatLogs(sessions, 'delete');
 
         showToast(
           Locale.Home.DeleteToast,
@@ -516,7 +518,7 @@ export const useChatStore = createPersistStore(
       //     // 其他配置字段...
       //   },
       // },
-      async saveChatLogs(sessions: ChatSession[]) {
+      async saveChatLogs(sessions: ChatSession[], val) {
         try {
           // 将前端会话转换为后端期望的格式
           const backendFormat = sessions.map((session) => ({
@@ -553,21 +555,37 @@ export const useChatStore = createPersistStore(
             lastSummarizeIndex: session.lastSummarizeIndex,
             clearContextIndex: session.clearContextIndex,
           }));
-      
-          // 发送到后端
-          const response = await fetch('http://140.143.208.64:8080/system/aiLog/save', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': Cookies.get('token') || '',
-            },
-            body: JSON.stringify({ logs: backendFormat }), // 按后端要求包裹数据
-          });
-      
-          if (!response.ok) throw new Error(`保存失败: HTTP ${response.status}`);
-          const data = await response.json();
-          console.log('[保存会话] 成功', data);
-          return data;
+          if (val) {
+            // 走删除保存接口
+            const response = await fetch('http://140.143.208.64:8080/system/aiLog/save', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': Cookies.get('token') || '',
+              },
+              body: JSON.stringify({ logs: backendFormat }), // 按后端要求包裹数据
+            });
+
+            if (!response.ok) throw new Error(`保存失败: HTTP ${response.status}`);
+            const data = await response.json();
+            console.log('[保存会话] 成功', data);
+            return data;
+          } else {
+            // 发送到后端
+            const response = await fetch('http://140.143.208.64:8080/system/aiLog/saveOne', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': Cookies.get('token') || '',
+              },
+              body: JSON.stringify({ logs: backendFormat }), // 按后端要求包裹数据
+            });
+
+            if (!response.ok) throw new Error(`保存失败: HTTP ${response.status}`);
+            const data = await response.json();
+            console.log('[保存会话] 成功', data);
+            return data;
+          }
         } catch (error) {
           console.error('[保存会话] 失败', error);
           showToast(Locale.Home.SaveError, error);
@@ -973,7 +991,7 @@ export const useChatStore = createPersistStore(
 
       updateStat(message: ChatMessage, session: ChatSession) {
         get().updateTargetSession(session, (session) => {
-          console.log('session',session)
+          console.log('session', session)
           // session.stat.charCount += message.content.length;
           // TODO: should update chat count and word count
         });
@@ -988,9 +1006,9 @@ export const useChatStore = createPersistStore(
         updater(sessions[index]);
         set(() => ({ sessions }));
       },
+      // 移除 clearAllData 方法中的缓存清除逻辑
       async clearAllData() {
-        await indexedDBStorage.clear();
-        localStorage.clear();
+        // 仅保留接口调用或其他必要操作
         location.reload();
       },
       setLastInput(lastInput: string) {
@@ -1037,72 +1055,8 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 3.3,
-    migrate(persistedState, version) {
-      const state = persistedState as any;
-      const newState = JSON.parse(
-        JSON.stringify(state),
-      ) as typeof DEFAULT_CHAT_STATE;
-
-      if (version < 2) {
-        newState.sessions = [];
-
-        const oldSessions = state.sessions;
-        for (const oldSession of oldSessions) {
-          const newSession = createEmptySession();
-          newSession.topic = oldSession.topic;
-          newSession.messages = [...oldSession.messages];
-          newSession.mask.modelConfig.sendMemory = true;
-          newSession.mask.modelConfig.historyMessageCount = 4;
-          newSession.mask.modelConfig.compressMessageLengthThreshold = 1000;
-          newState.sessions.push(newSession);
-        }
-      }
-
-      if (version < 3) {
-        // migrate id to nanoid
-        newState.sessions.forEach((s) => {
-          s.id = nanoid();
-          s.messages.forEach((m) => (m.id = nanoid()));
-        });
-      }
-
-      // Enable `enableInjectSystemPrompts` attribute for old sessions.
-      // Resolve issue of old sessions not automatically enabling.
-      if (version < 3.1) {
-        newState.sessions.forEach((s) => {
-          if (
-            // Exclude those already set by user
-            !s.mask.modelConfig.hasOwnProperty("enableInjectSystemPrompts")
-          ) {
-            // Because users may have changed this configuration,
-            // the user's current configuration is used instead of the default
-            const config = useAppConfig.getState();
-            s.mask.modelConfig.enableInjectSystemPrompts =
-              config.modelConfig.enableInjectSystemPrompts;
-          }
-        });
-      }
-
-      // add default summarize model for every session
-      if (version < 3.2) {
-        newState.sessions.forEach((s) => {
-          const config = useAppConfig.getState();
-          s.mask.modelConfig.compressModel = config.modelConfig.compressModel;
-          s.mask.modelConfig.compressProviderName =
-            config.modelConfig.compressProviderName;
-        });
-      }
-      // revert default summarize model for every session
-      if (version < 3.3) {
-        newState.sessions.forEach((s) => {
-          const config = useAppConfig.getState();
-          s.mask.modelConfig.compressModel = "";
-          s.mask.modelConfig.compressProviderName = "";
-        });
-      }
-
-      return newState as any;
-    },
+    // 移除迁移逻辑
+    // version: 3.3,
+    // migrate(persistedState, version) { ... }
   },
 );

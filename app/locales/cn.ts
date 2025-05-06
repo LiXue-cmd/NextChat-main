@@ -91,7 +91,7 @@ const cn = {
       }
       return inputHints + "，/ 触发补全，: 触发命令";
     },
-    Send: "发送12",
+    Send: "发送",
     StartSpeak: "说话",
     StopSpeak: "停止",
     Config: {

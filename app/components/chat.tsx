@@ -2082,7 +2082,7 @@ function _Chat() {
                           </div>
                         </div>
                       </div>
-                      {shouldShowClearContextDivider && <ClearContextDivider />}
+                      {/* {shouldShowClearContextDivider && <ClearContextDivider />} */}
                     </Fragment>
                   );
                 })}

@@ -288,6 +288,7 @@ export const useChatStore = createPersistStore(
     }
 
     const methods = {
+
       async initializeSession() {
         const api = getClientApi();
         try {
@@ -506,6 +507,15 @@ export const useChatStore = createPersistStore(
         // const chatLogs = targetSession.messages;
         // get().saveChatLogs(chatLogs);
       },
+      // mask: {
+      //   id: session.mask.id,
+      //   name: session.mask.name,
+      //   modelConfig: {
+      //     model: session.mask.modelConfig.model,
+      //     providerName: session.mask.modelConfig.providerName,
+      //     // 其他配置字段...
+      //   },
+      // },
       async saveChatLogs(sessions: ChatSession[]) {
         try {
           // 将前端会话转换为后端期望的格式
@@ -964,7 +974,7 @@ export const useChatStore = createPersistStore(
       updateStat(message: ChatMessage, session: ChatSession) {
         get().updateTargetSession(session, (session) => {
           console.log('session',session)
-          session.stat.charCount += message.content.length;
+          // session.stat.charCount += message.content.length;
           // TODO: should update chat count and word count
         });
       },

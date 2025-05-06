@@ -274,11 +274,33 @@ export function getHeaders(ignoreHeaders: boolean = false) {
   const clientConfig = getClientConfig();
 
   function getConfig() {
-    const modelConfig = chatStore.currentSession().mask.modelConfig;
+    // 检查会话是否存在
+    const session = chatStore.currentSession();
+    if (!session) {
+      // 如果会话不存在，返回默认配置
+      return {
+        isGoogle: false,
+        isAzure: false,
+        isAnthropic: false,
+        isBaidu: false,
+        isByteDance: false,
+        isAlibaba: false,
+        isMoonshot: false,
+        isIflytek: false,
+        isDeepSeek: false,
+        isXAI: false,
+        isChatGLM: false,
+        isSiliconFlow: false,
+        apiKey: "",
+        isEnabledAccessControl: accessStore.enabledAccessControl(),
+      };
+    }
+
+    const modelConfig = session.mask.modelConfig;
     const isGoogle = modelConfig.providerName === ServiceProvider.Google;
     const isAzure = modelConfig.providerName === ServiceProvider.Azure;
     const isAnthropic = modelConfig.providerName === ServiceProvider.Anthropic;
-    const isBaidu = modelConfig.providerName == ServiceProvider.Baidu;
+    const isBaidu = modelConfig.providerName === ServiceProvider.Baidu;
     const isByteDance = modelConfig.providerName === ServiceProvider.ByteDance;
     const isAlibaba = modelConfig.providerName === ServiceProvider.Alibaba;
     const isMoonshot = modelConfig.providerName === ServiceProvider.Moonshot;
@@ -290,29 +312,29 @@ export function getHeaders(ignoreHeaders: boolean = false) {
       modelConfig.providerName === ServiceProvider.SiliconFlow;
     const isEnabledAccessControl = accessStore.enabledAccessControl();
     const apiKey = isGoogle
-      ? accessStore.googleApiKey
+     ? accessStore.googleApiKey
       : isAzure
-        ? accessStore.azureApiKey
+       ? accessStore.azureApiKey
         : isAnthropic
-          ? accessStore.anthropicApiKey
+         ? accessStore.anthropicApiKey
           : isByteDance
-            ? accessStore.bytedanceApiKey
+           ? accessStore.bytedanceApiKey
             : isAlibaba
-              ? accessStore.alibabaApiKey
+             ? accessStore.alibabaApiKey
               : isMoonshot
-                ? accessStore.moonshotApiKey
+               ? accessStore.moonshotApiKey
                 : isXAI
-                  ? accessStore.xaiApiKey
+                 ? accessStore.xaiApiKey
                   : isDeepSeek
-                    ? accessStore.deepseekApiKey
+                   ? accessStore.deepseekApiKey
                     : isChatGLM
-                      ? accessStore.chatglmApiKey
+                     ? accessStore.chatglmApiKey
                       : isSiliconFlow
-                        ? accessStore.siliconflowApiKey
+                       ? accessStore.siliconflowApiKey
                         : isIflytek
-                          ? accessStore.iflytekApiKey && accessStore.iflytekApiSecret
-                            ? accessStore.iflytekApiKey + ":" + accessStore.iflytekApiSecret
-                            : ""
+                         ? accessStore.iflytekApiKey && accessStore.iflytekApiSecret
+                          ? accessStore.iflytekApiKey + ":" + accessStore.iflytekApiSecret
+                           : ""
                           : accessStore.openaiApiKey;
     return {
       isGoogle,
@@ -334,11 +356,11 @@ export function getHeaders(ignoreHeaders: boolean = false) {
 
   function getAuthHeader(): string {
     return isAzure
-      ? "api-key"
+     ? "api-key"
       : isAnthropic
-        ? "x-api-key"
+       ? "x-api-key"
         : isGoogle
-          ? "x-goog-api-key"
+         ? "x-goog-api-key"
           : "Authorization";
   }
 

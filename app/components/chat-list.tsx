@@ -142,7 +142,7 @@ export function ChatList(props: { narrow?: boolean }) {
             {sessions.map((item, i) => (
               <ChatItem
                 // title={item.messages[0].content}
-                title={item.messages?.length > 0 ? item.messages[0].content : item.topic}
+                title={item.topic}
                 time={new Date(item.lastUpdate).toLocaleString()}
                 count={item.messages.length}
                 key={item.id}

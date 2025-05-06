@@ -288,35 +288,6 @@ export const useChatStore = createPersistStore(
     }
 
     const methods = {
-      // forkSession() {
-      //   // 获取当前会话
-      //   const currentSession = get().currentSession();
-      //   console.log('currentSession', currentSession)
-      //   if (!currentSession) return;
-      //   console.log('currentSession', currentSession)
-      //   const newSession = createEmptySession();
-
-      //   newSession.topic = currentSession.mtopic;
-      //   newSession.topic = currentSession.messages[0].content;
-      //   // 深拷贝消息
-      //   newSession.messages = currentSession.messages.map((msg) => ({
-      //     ...msg,
-      //     id: nanoid(), // 生成新的消息 ID
-      //   }));
-      //   newSession.mask = {
-      //     ...currentSession.mask,
-      //     modelConfig: {
-      //       ...currentSession.mask.modelConfig,
-      //     },
-      //   };
-
-      //   console.log('newSession', newSession)
-      //   set((state) => ({
-      //     currentSessionIndex: 0,
-      //     sessions: [newSession, ...state.sessions],
-      //   }));
-      // },
-
       async initializeSession() {
         const api = getClientApi();
         try {
@@ -334,15 +305,41 @@ export const useChatStore = createPersistStore(
           const sessions = backendLogs.map((backendLog) => ({
             // 使用后端数据覆盖默认值
             id: backendLog.id,
+            userId:backendLog.userId || "",
             topic: backendLog.topic || DEFAULT_TOPIC,
+            messageId: backendLog.messageId || nanoid(),
+
             memoryPrompt: backendLog.memoryPrompt || "",
+            lastUpdate: backendLog.lastUpdate || "",
+            lastSummarizeIndex: backendLog.lastSummarizeIndex || "",
+            clearContextIndex: backendLog.clearContextIndex || "",
             messages: (backendLog.messages || []).map((msg) => ({
               id: msg.id || nanoid(),
               role: msg.role || "user",
               content: msg.content || "",
-              // 其他消息字段...
+              date: msg.date || "",
+              model: msg.model || "",
+              streaming: msg.streaming || "",
+              mcpResponse: msg.mcpResponse || "",
             })),
             // 其他会话字段...
+            mask: {
+              id: backendLog.mask.id || nanoid(),
+              name: backendLog.mask.name || "",
+              lastUpdate: backendLog.mask.lastUpdate || "",
+              modelConfig: {
+                model: backendLog.mask.modelConfig.model || '',
+                max_tokens: backendLog.mask.modelConfig.max_tokens || 256,
+                sendMemory: backendLog.mask.modelConfig.sendMemory || true,
+
+                temperature: backendLog.mask.modelConfig.temperature || 1,
+                providerName: backendLog.mask.modelConfig.providerName || '',
+                historyMessageCount:  backendLog.mask.modelConfig.historyMessageCount || 5,
+                compressMessageLengthThreshold: backendLog.mask.modelConfig.compressMessageLengthThreshold || 1000,
+                // top_p: backendLog.mask.modelConfig.top_p || 1,
+              },
+              // context: backendLog.mask.context || [],
+            },
           }));
       
           set((state) => ({
@@ -509,15 +506,6 @@ export const useChatStore = createPersistStore(
         // const chatLogs = targetSession.messages;
         // get().saveChatLogs(chatLogs);
       },
-      // mask: {
-      //   id: session.mask.id,
-      //   name: session.mask.name,
-      //   modelConfig: {
-      //     model: session.mask.modelConfig.model,
-      //     providerName: session.mask.modelConfig.providerName,
-      //     // 其他配置字段...
-      //   },
-      // },
       async saveChatLogs(sessions: ChatSession[]) {
         try {
           // 将前端会话转换为后端期望的格式
@@ -975,6 +963,7 @@ export const useChatStore = createPersistStore(
 
       updateStat(message: ChatMessage, session: ChatSession) {
         get().updateTargetSession(session, (session) => {
+          console.log('session',session)
           session.stat.charCount += message.content.length;
           // TODO: should update chat count and word count
         });

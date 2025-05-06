@@ -1753,9 +1753,7 @@ function _Chat() {
               onClickCapture={() => setIsEditingMessage(true)}
             >
               {/* {session.messages[0].content ? session.messages[0].content : DEFAULT_TOPIC} */}
-              {session.messages?.length > 0 
-    ? session.messages[0].content 
-    : session.topic || DEFAULT_TOPIC}
+              {session.topic}
               {/* {!session.topic ? DEFAULT_TOPIC : session.topic} */}
             </div>
             <div className="window-header-sub-title">

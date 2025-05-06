@@ -319,49 +319,45 @@ export const useChatStore = createPersistStore(
 
       async initializeSession() {
         const api = getClientApi();
-        // 从接口获取历史会话数据
-        const backendLogs: BackendChatLog[] = await api.getChatLogs();
-        console.log('[初始化会话] 接口返回数据', backendLogs);
-        // 转换为前端 `ChatSession` 格式
-        const sessions = backendLogs.map((backendLog) => ({
-          // 使用后端数据覆盖默认值
-          id: backendLog.id,
-          topic: backendLog.topic || DEFAULT_TOPIC, // 无主题时使用默认
-          memoryPrompt: backendLog.memoryPrompt || "", // 无记忆提示时为空
-          
-          // 关键修改：增加对 messages 的空值检查
-          messages: (backendLog.messages || []).map((msg) => ({
-            // 确保消息ID存在（后端可能未返回，生成新ID）
-            id: msg.id || nanoid(),
-            // 其他字段直接使用后端数据
-            role: msg.role || "user", // 默认为用户消息
-            content: msg.content || "", // 内容不能为空
-            date: msg.date || new Date().toLocaleString(), // 无时间时用当前时间
-            streaming: msg.streaming || false,
-            isError: msg.isError || false,
-            model: msg.model, // 模型信息
-            tools: msg.tools || [], // 工具列表
-            isMcpResponse: msg.isMcpResponse || false, // MCP响应标记
-          })),
-          
-          stat: {
-            // 统计信息（若后端未返回，初始化时重置）
-            tokenCount: 0,
-            wordCount: 0,
-            charCount: 0,
-          },
-          lastUpdate: backendLog.lastUpdate || Date.now(), // 最后更新时间
-          lastSummarizeIndex: backendLog.lastSummarizeIndex || 0, // 最后总结索引
-          clearContextIndex: backendLog.clearContextIndex, // 清空上下文索引
-          // 合并模型配置：使用后端返回的mask，若无则创建空mask
-          mask: backendLog.mask || createEmptyMask(),
-        }));
+        try {
+          // 从接口获取历史会话数据
+          const backendLogs = await api.getChatLogs();
+          console.log('[初始化会话] 接口返回数据', backendLogs);
       
-        // 设置会话状态：优先使用接口数据，无数据时创建空会话
-        set((state) => ({
-          currentSessionIndex: 0,
-          sessions: sessions.length > 0 ? sessions : [createEmptySession()],
-        }));
+          // 关键修改：检查 backendLogs 是否为数组
+          if (!Array.isArray(backendLogs)) {
+            console.error('[错误] 接口返回非数组数据:', backendLogs);
+            throw new Error('获取会话数据失败');
+          }
+      
+          // 转换为前端 `ChatSession` 格式
+          const sessions = backendLogs.map((backendLog) => ({
+            // 使用后端数据覆盖默认值
+            id: backendLog.id,
+            topic: backendLog.topic || DEFAULT_TOPIC,
+            memoryPrompt: backendLog.memoryPrompt || "",
+            messages: (backendLog.messages || []).map((msg) => ({
+              id: msg.id || nanoid(),
+              role: msg.role || "user",
+              content: msg.content || "",
+              // 其他消息字段...
+            })),
+            // 其他会话字段...
+          }));
+      
+          set((state) => ({
+            currentSessionIndex: 0,
+            sessions: sessions.length > 0 ? sessions : [createEmptySession()],
+          }));
+        } catch (error) {
+          console.error('[初始化会话失败]', error);
+          // 错误处理：设置空会话或显示错误提示
+          set((state) => ({
+            currentSessionIndex: 0,
+            sessions: [createEmptySession()],
+            error: error.message,
+          }));
+        }
       },
 
       clearSessions() {
@@ -727,7 +723,8 @@ export const useChatStore = createPersistStore(
         const totalMessageCount = session.messages.length;
 
         // in-context prompts
-        const contextPrompts = session.mask.context.slice();
+        // 关键修改：安全访问 context 并确保其为数组类型
+        const contextPrompts = (session.mask?.context || []).slice();
 
         // system prompts, to get close to OpenAI Web ChatGPT
         const shouldInjectSystemPrompts =

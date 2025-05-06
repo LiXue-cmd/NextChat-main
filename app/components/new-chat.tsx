@@ -197,7 +197,7 @@ export function NewChat() {
       <div className={styles["masks"]} ref={maskRef}>
         {Array.isArray(groups) ? (
           groups.map((mask, index) => (
-            <div key={index} className={styles["mask-row"]} style={{border:'1px solid red'}}>
+            <div key={index} className={styles["mask-row"]}>
             <MaskItem
               key={index}
               mask={mask}

@@ -241,7 +241,7 @@ function PromptToast(props: {
 
   return (
     <div className={styles["prompt-toast"]} key="prompt-toast">
-      {props.showToast && context.length > 0 && (
+      {props.showToast && Array.isArray(context) && context.length > 0 && (
         <div
           className={clsx(styles["prompt-toast-inner"], "clickable")}
           role="button"
@@ -1374,8 +1374,11 @@ function _Chat() {
   }
 
   const context: RenderMessage[] = useMemo(() => {
-    return session.mask.hideContext ? [] : session.mask.context.slice();
-  }, [session.mask.context, session.mask.hideContext]);
+    // 关键修改：安全访问 context 并确保其为数组类型
+    return session.mask?.hideContext 
+      ? [] 
+      : (session.mask?.context || []).slice();
+  }, [session.mask?.context, session.mask?.hideContext]);
 
   if (
     context.length === 0 &&

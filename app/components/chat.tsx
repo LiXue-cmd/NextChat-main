@@ -1017,14 +1017,14 @@ function _Chat() {
 
         const { code, data } = await response.json();
         
-        if(data.code === 401){
+        if(code === 401){
           window.location.href = '/login';
         }else if (code !== 200 || !Array.isArray(data)) {
           throw new Error("Invalid model list response");
         }
 
         const formattedModels: Model[] = data.map(model => ({
-          name: model.modelId,
+          name: model.name,
           displayName: model.name,
           available: model.isEnable === "1",
           provider: {

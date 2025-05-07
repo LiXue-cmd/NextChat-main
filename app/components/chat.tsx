@@ -109,7 +109,8 @@ import {
   UNFINISHED_INPUT,
 } from "../constant";
 import { Avatar } from "./emoji";
-import { ContextPrompts, MaskAvatar, MaskConfig } from "./mask";
+import MaskAvatar from "./mask";
+import { ContextPrompts, MaskConfig } from "./mask";
 import { useMaskStore } from "../store/mask";
 import { ChatCommandPrefix, useChatCommand, useCommand } from "../command";
 import { prettyObject } from "../utils/format";
@@ -682,7 +683,7 @@ useEffect(() => {
           <Selector
             defaultSelectedValue={`${currentModel}@${currentProviderName}`}
             // 修改：使用接口返回的 models 生成选项
-            items={models.map(m => ({
+            items={props.models.map(m => ({
               title: `${m.displayName} (${m.provider.providerName})`,
               value: `${m.name}@${m.provider.providerName}`
             }))}
@@ -697,7 +698,7 @@ useEffect(() => {
                 session.mask.syncGlobalConfig = false;
               });
               if (providerName == "ByteDance") {
-                const selectedModel = models.find(
+                const selectedModel = props.models.find(
                   (m) =>
                     m.name == model &&
                     m?.provider?.providerName == providerName,

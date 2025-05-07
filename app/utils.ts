@@ -237,11 +237,19 @@ export function getMessageTextContent(message: RequestMessage) {
   if (typeof message.content === "string") {
     return message.content;
   }
-  for (const c of message.content) {
-    if (c.type === "text") {
-      return c.text ?? "";
+  if (Array.isArray(message.content)) {
+    for (const c of message.content) {
+      if (c.type === "text") {
+        return c.text ?? "";
+      }
+    }
+  } else if (message.content) {
+    // 处理单个对象的情况
+    if (message.content.type === "text") {
+      return message.content.text ?? "";
     }
   }
+  
   return "";
 }
 
@@ -272,9 +280,11 @@ export function getMessageImages(message: RequestMessage): string[] {
     return [];
   }
   const urls: string[] = [];
-  for (const c of message.content) {
-    if (c.type === "image_url") {
-      urls.push(c.image_url?.url ?? "");
+  if (Array.isArray(message.content)) {
+    for (const c of message.content) {
+      if (c.type === "image_url") {
+        urls.push(c.image_url?.url ?? "");
+      }
     }
   }
   return urls;

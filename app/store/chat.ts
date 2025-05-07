@@ -226,7 +226,10 @@ function fillTemplateWith(input: string, modelConfig: ModelConfig) {
   let output = modelConfig.template ?? DEFAULT_INPUT_TEMPLATE;
 
   // remove duplicate
-  if (input.startsWith(output)) {
+  if (typeof input !== 'string') {
+    console.error('Expected input to be a string but got:', input);
+    return; // 或者进行其他处理
+  }else if (input.startsWith(output)) {
     output = "";
   }
 

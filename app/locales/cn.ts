@@ -32,7 +32,9 @@ const cn = {
   ChatItem: {
     ChatItemCount: (count: number) => `${count} 条对话`,
   },
-  Chat: {
+  Chat: {    
+    // Input: (submitKey: string) => `Type a message (${submitKey} to send)`,
+    InputReply: (submitKey: string) => `Reply to the message (${submitKey} to send)`,
     SubTitle: (count: number) => `共 ${count} 条对话`,
     EditMessage: {
       Title: "编辑消息记录",
@@ -82,6 +84,7 @@ const cn = {
       Settings: "对话设置",
       UploadImage: "上传图片",
     },
+
     Rename: "重命名对话",
     Typing: "正在输入…",
     Input: (submitKey: string) => {

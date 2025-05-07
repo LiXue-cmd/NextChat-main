@@ -48,6 +48,7 @@ import PluginIcon from "../icons/plugin.svg";
 import ShortcutkeyIcon from "../icons/shortcutkey.svg";
 import McpToolIcon from "../icons/tool.svg";
 import HeadphoneIcon from "../icons/headphone.svg";
+import QuoteIcon from '../icons/headphone.svg';
 import {
   BOT_HELLO,
   ChatMessage,
@@ -129,6 +130,8 @@ import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
 import Cookies from 'js-cookie';
 
 import { useModelStore } from '../context/ModelContext';
+// 导入 safeStorage
+import { safeStorage } from '../utils/storage';
 
 const localStorage = safeLocalStorage();
 
@@ -546,6 +549,10 @@ export function ChatActions(props: {
 
   // 直接使用 props 中的模型数据
   const currentModelName = useMemo(() => {
+    // 检查 props.models 是否为 undefined
+    if (!props.models) {
+      return "";
+    }
     return props.models.find(m =>
       m.name === currentModel && m.provider.providerName === currentProviderName
     )?.displayName || "";
@@ -570,16 +577,18 @@ export function ChatActions(props: {
 
   // 修改后的 useEffect，确保 models 状态已定义
   useEffect(() => {
-    const isUnavailableModel = !props.models.some(m => m.name === currentModel);
-    if (isUnavailableModel && props.models.length > 0) {
+    // 检查 props.models 是否为 undefined
+    const isUnavailableModel = props.models?.some(m => m.name === currentModel) === false;
+
+    if (isUnavailableModel && props.models?.length > 0) {
       const nextModel = props.models.find(m => m.isDefault) || props.models[0];
       chatStore.updateTargetSession(session, (session) => {
         session.mask.modelConfig.model = nextModel.name;
         session.mask.modelConfig.providerName = nextModel.provider.providerName;
+        session.mask.syncGlobalConfig = false;
       });
-      showToast(nextModel.displayName || nextModel.name);
     }
-  }, [chatStore, currentModel, props.models, session]); // 确保依赖项中的 models 已定义
+  }, [props.models, currentModel, chatStore, session]); // 确保依赖项中的 models 已定义
 
   return (
     <div className={styles["chat-input-actions"]}>
@@ -986,14 +995,7 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
 }
 
 function _Chat() {
-  const { groups, loading, error } = useModelStore();
-  console.log('useModgroupselStore',groups)
   type RenderMessage = ChatMessage & { preview?: boolean };
-
-  // ✅ 组件内部声明状态
-  const [models, setModels] = useState<Model[]>([]);
-  const [modelsLoading, setModelsLoading] = useState(true);
-  const [modelsError, setModelsError] = useState<string | null>(null);
 
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
@@ -1005,27 +1007,21 @@ function _Chat() {
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
+  const allModels = useAllModels();
+  const models = useMemo(() => {
+    const filteredModels = allModels.filter((m) => m.available);
+    const defaultModel = filteredModels.find((m) => m.isDefault);
 
-  // ✅ 组件内部获取模型数据
-  // ✅ 组件内部获取模型数据（只在挂载时请求一次）
-  useEffect(() => {
-    const fetchModels = async () => {
-      const formattedModels: Model[] = groups.map(model => ({
-        name: model.name,
-        displayName: model.name, // 假设这里需要正确映射显示名称
-        available: model.isEnable === "1",
-        provider: {
-          providerName: model.type || ServiceProvider.OpenAI
-        }
-      }));
-
-      setModels(formattedModels);
-    };
-
-    fetchModels();
-  }, []); // ✅ 依赖项为空数组，仅在组件挂载时执行一次
-
-
+    if (defaultModel) {
+      const arr = [
+        defaultModel,
+        ...filteredModels.filter((m) => m !== defaultModel),
+      ];
+      return arr;
+    } else {
+      return filteredModels;
+    }
+  }, [allModels]);
   const currentModelName = useMemo(() => {
     const model = models.find(
       (m) =>
@@ -1034,19 +1030,6 @@ function _Chat() {
     );
     return model?.displayName ?? "";
   }, [models, currentModel, currentProviderName]);
-
-  // 模型不可用处理（使用新的 models 数据）
-  useEffect(() => {
-    const isUnavailableModel = !models.some(m => m.name === currentModel);
-    if (isUnavailableModel && models.length > 0) {
-      const nextModel = models.find(m => m.isDefault) || models[0];
-      chatStore.updateTargetSession(session, (session) => {
-        session.mask.modelConfig.model = nextModel.displayName;
-        session.mask.modelConfig.providerName = nextModel.provider.providerName;
-      });
-      showToast(nextModel.displayName || nextModel.name);
-    }
-  }, [chatStore, currentModel, models, session]);
 
   const [showModelSelector, setShowModelSelector] = useState(false);
 
@@ -1170,6 +1153,17 @@ function _Chat() {
     }
   };
 
+  const [quotedMessage, setQuotedMessage] = useState<ChatMessage | null>(null);
+  const [isQuoting, setIsQuoting] = useState(false);
+
+  const onQuoteReply = (message: ChatMessage) => {
+    setQuotedMessage(message);
+    setIsQuoting(true);
+    const quoteText = `> ${getMessageTextContent(message)}\n\n`;
+    setUserInput(quoteText);
+    inputRef.current?.focus();
+  };
+
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages)) return;
     const matchCommand = chatCommands.match(userInput);
@@ -1180,13 +1174,31 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
-    chatStore
-      .onUserInput(userInput, attachImages)
-      .then(() => setIsLoading(false));
+
+    // 处理引用消息
+    if (isQuoting) {
+      const fullMessage = {
+        ...createMessage({
+          role: "user",
+          content: userInput,
+        }),
+        quotedMessage: quotedMessage,
+      };
+      chatStore
+        .onUserInput(fullMessage, attachImages)
+        .then(() => setIsLoading(false));
+    } else {
+      chatStore
+        .onUserInput(userInput, attachImages)
+        .then(() => setIsLoading(false));
+    }
+
     setAttachImages([]);
     chatStore.setLastInput(userInput);
     setUserInput("");
     setPromptHints([]);
+    setQuotedMessage(null);
+    setIsQuoting(false);
     if (!isMobileScreen) inputRef.current?.focus();
     setAutoScroll(true);
   };
@@ -1399,28 +1411,20 @@ function _Chat() {
   }
 
   const context: RenderMessage[] = useMemo(() => {
-    const contextMessages = session.mask?.hideContext
-      ? []
-      : (session.mask?.context || []).slice();
+    // 检查 session.mask.context 是否为 undefined
+    return session.mask.hideContext ? [] : (session.mask.context ? session.mask.context.slice() : []);
+  }, [session.mask.context, session.mask.hideContext]);
 
-    if (
-      contextMessages.length === 0 &&
-      session.messages.at(0)?.content !== BOT_HELLO.content
-    ) {
-      const copiedHello = Object.assign({}, BOT_HELLO);
-      if (!accessStore.isAuthorized()) {
-        // 确保Unauthorized是一个字符串
-        // copiedHello.content = typeof Locale.Error.Unauthorized === 'string' 
-        //   ? Locale.Error.Unauthorized 
-        //   : JSON.stringify(Locale.Error.Unauthorized);
-        // 明确获取国际化文本的具体字段（假设 fUnauthorized 是错误消息字段）
-        copiedHello.content = Locale.Error.Unauthorized || "未授权访问";
-      }
-      contextMessages.push(copiedHello);
+  if (
+    context.length === 0 &&
+    session.messages.at(0)?.content !== BOT_HELLO.content
+  ) {
+    const copiedHello = Object.assign({}, BOT_HELLO);
+    if (!accessStore.isAuthorized()) {
+      copiedHello.content = Locale.Error.Unauthorized;
     }
-
-    return contextMessages;
-  }, [session.mask?.context, session.mask?.hideContext, accessStore]);
+    context.push(copiedHello);
+  }
 
   // preview messages
   const renderMessages = useMemo(() => {
@@ -1573,15 +1577,15 @@ function _Chat() {
   useEffect(() => {
     // try to load from local storage
     const key = UNFINISHED_INPUT(session.id);
-    const mayBeUnfinishedInput = localStorage.getItem(key);
+    const mayBeUnfinishedInput = safeStorage.getItem(key);
     if (mayBeUnfinishedInput && userInput.length === 0) {
       setUserInput(mayBeUnfinishedInput);
-      localStorage.removeItem(key);
+      safeStorage.removeItem(key);
     }
 
     const dom = inputRef.current;
     return () => {
-      localStorage.setItem(key, dom?.value ?? "");
+      safeStorage.setItem(key, dom?.value ?? "");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1783,9 +1787,7 @@ function _Chat() {
               )}
               onClickCapture={() => setIsEditingMessage(true)}
             >
-              {/* {session.messages[0].content ? session.messages[0].content : DEFAULT_TOPIC} */}
-              {session.topic}
-              {/* {!session.topic ? DEFAULT_TOPIC : session.topic} */}
+              {!session.topic ? DEFAULT_TOPIC : session.topic}
             </div>
             <div className="window-header-sub-title">
               {Locale.Chat.SubTitle(session.messages.length)}
@@ -1865,9 +1867,8 @@ function _Chat() {
                 .map((message, i) => {
                   const isUser = message.role === "user";
                   const isContext = i < context.length;
-                  const showActions =
-                    i > 0 &&
-                    !(message.preview || message.content.length === 0) &&
+                  const showActions = i > 0 &&
+                    !(message.preview || (message.content === undefined || message.content.length === 0)) &&
                     !isContext;
                   const showTyping = message.preview || message.streaming;
 
@@ -2013,6 +2014,13 @@ function _Chat() {
                                           }
                                         />
                                       )}
+
+                                      {/* 新增引用回复按钮 */}
+                                      <ChatAction
+                                        text={Locale.Chat.Actions.QuoteReply}
+                                        icon={<QuoteIcon />}
+                                        onClick={() => onQuoteReply(message)}
+                                      />
                                     </>
                                   )}
                                 </div>
@@ -2113,7 +2121,7 @@ function _Chat() {
                           </div>
                         </div>
                       </div>
-                      {/* {shouldShowClearContextDivider && <ClearContextDivider />} */}
+                      {shouldShowClearContextDivider && <ClearContextDivider />}
                     </Fragment>
                   );
                 })}
@@ -2126,9 +2134,6 @@ function _Chat() {
               />
 
               <ChatActions
-                models={models}
-                modelsLoading={modelsLoading}
-                modelsError={modelsError}
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
                 setUploading={setUploading}
@@ -2162,7 +2167,8 @@ function _Chat() {
                   id="chat-input"
                   ref={inputRef}
                   className={styles["chat-input"]}
-                  placeholder={Locale.Chat.Input(submitKey)}
+                  // placeholder={isQuoting ? Locale.chat.InputReply : Locale.chat.Input}
+                  // placeholder={isQuoting ? Locale.Chat.InputReply(submitKey) : Locale.Chat.Input(submitKey)}
                   onInput={(e) => onInput(e.currentTarget.value)}
                   value={userInput}
                   onKeyDown={onInputKeyDown}
@@ -2182,14 +2188,13 @@ function _Chat() {
                     defaultSelectedValue={`${currentModel}@${currentProviderName}`}
                     items={models.map((m) => ({
                       title: `${m.displayName}${m?.provider?.providerName
-                        ? " (" + m?.provider?.providerName + ")"
-                        : ""
+                          ? " (" + m?.provider?.providerName + ")"
+                          : ""
                         }`,
-                      value: `${m.displayName}@${m?.provider?.providerName}`,
+                      value: `${m.name}@${m?.provider?.providerName}`,
                     }))}
                     onClose={() => setShowModelSelector(false)}
                     onSelection={(s) => {
-                      console.log('s',s)
                       if (s.length === 0) return;
                       const [model, providerName] = getModelProvider(s[0]);
                       chatStore.updateTargetSession(session, (session) => {
@@ -2212,7 +2217,6 @@ function _Chat() {
                             return newInput;
                           });
                         }
-                        console.log("model: ", model);
                         setUserInput((prevInput) => prevInput + " " + model + " ");
 
                       }

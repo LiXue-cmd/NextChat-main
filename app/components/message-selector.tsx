@@ -3,7 +3,7 @@ import { ChatMessage, useAppConfig, useChatStore } from "../store";
 import { Updater } from "../typing";
 import { IconButton } from "./button";
 import { Avatar } from "./emoji";
-import { MaskAvatar } from "./mask";
+import  MaskAvatar  from "./mask";
 import Locale from "../locales";
 
 import styles from "./message-selector.module.scss";

@@ -511,6 +511,9 @@ export function ChatActions(props: {
   setShowShortcutKeyModal: React.Dispatch<React.SetStateAction<boolean>>;
   setUserInput: (input: string) => void;
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
+  models: Model[];
+  modelsLoading: boolean;
+  modelsError: string | null;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
@@ -537,70 +540,13 @@ export function ChatActions(props: {
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
-  // const allModels = useAllModels();
-  // const models = useMemo(() => {
-  //   const filteredModels = allModels.filter((m) => m.available);
-  //   const defaultModel = filteredModels.find((m) => m.isDefault);
 
-  //   if (defaultModel) {
-  //     const arr = [
-  //       defaultModel,
-  //       ...filteredModels.filter((m) => m !== defaultModel),
-  //     ];
-  //     return arr;
-  //   } else {
-  //     return filteredModels;
-  //   }
-  // }, [allModels]);
-  // 新增：接口数据状态
-  const [models, setModels] = useState<any[]>([]); // 假设接口返回的模型类型
-  const [modelsLoading, setModelsLoading] = useState(true);
-  const [modelsError, setModelsError] = useState<string | null>(null);
-
-  // 新增：接口数据获取
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await fetch("http://140.143.208.64:8080/system/model/getUserModelByLogin", {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': Cookies.get('token') || '',
-          },
-        });
-        if (!response.ok) throw new Error("模型列表获取失败");
-        const { code, data } = await response.json();
-        
-        const rows = data
-        if (code !== 200 || !Array.isArray(rows)) {
-          throw new Error("Failed to load models");
-        }
-        // 转换接口数据到应用所需的 Model 格式
-        const formattedModels: Model[] = rows.map(model => ({
-          name: model.modelId,
-          displayName: model.name,
-          available: model.isEnable === "1", // isEnable=1 表示可用
-          provider: {
-            providerName: model.type || ServiceProvider.OpenAI // 根据 type 映射服务提供商
-          }
-        }));
-        setModels(formattedModels);
-      } catch (error: any) {
-        setModelsError(error.message || "获取模型列表失败");
-      } finally {
-        setModelsLoading(false);
-      }
-    };
-
-    fetchModels();
-  }, []); // 仅在组件挂载时获取一次
-
-// 使用父组件传递的 models
-const currentModelName = useMemo(() => {
-  return models.find(m => 
-    m.name === currentModel && m.provider.providerName === currentProviderName
-  )?.displayName || "";
-}, [models, currentModel, currentProviderName]);
+  // 直接使用 props 中的模型数据
+  const currentModelName = useMemo(() => {
+    return props.models.find(m =>
+      m.name === currentModel && m.provider.providerName === currentProviderName
+    )?.displayName || "";
+  }, [props.models, currentModel, currentProviderName]);
 
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showPluginSelector, setShowPluginSelector] = useState(false);
@@ -619,38 +565,24 @@ const currentModelName = useMemo(() => {
 
   const isMobileScreen = useMobileScreen();
 
-  useEffect(() => {
-    const show = isVisionModel(currentModel);
-    setShowUploadImage(show);
-    if (!show) {
-      props.setAttachImages([]);
-      props.setUploading(false);
-    }
-
-    // if current model is not available
-    // switch to first available model
-    const isUnavailableModel = !models.some((m) => m.name === currentModel);
-    if (isUnavailableModel && models.length > 0) {
-      // show next model to default model if exist
-      let nextModel = models.find((model) => model.isDefault) || models[0];
-      chatStore.updateTargetSession(session, (session) => {
-        session.mask.modelConfig.model = nextModel.name;
-        session.mask.modelConfig.providerName = nextModel?.provider
-          ?.providerName as ServiceProvider;
-      });
-      showToast(
-        nextModel?.provider?.providerName == "ByteDance"
-          ? nextModel.displayName
-          : nextModel.name,
-      );
-    }
-  }, [chatStore, currentModel, models, session]);
+  // 修改后的 useEffect，确保 models 状态已定义
+useEffect(() => {
+  const isUnavailableModel = !props.models.some(m => m.name === currentModel);
+  if (isUnavailableModel && props.models.length > 0) {
+    const nextModel = props.models.find(m => m.isDefault) || props.models[0];
+    chatStore.updateTargetSession(session, (session) => {
+      session.mask.modelConfig.model = nextModel.name;
+      session.mask.modelConfig.providerName = nextModel.provider.providerName;
+    });
+    showToast(nextModel.displayName || nextModel.name);
+  }
+}, [chatStore, currentModel, props.models, session]); // 确保依赖项中的 models 已定义
 
   return (
     <div className={styles["chat-input-actions"]}>
       <>
         {/* 新增：加载状态提示 */}
-        {modelsLoading && (
+        {props.modelsLoading && (
           <ChatAction
             text={Locale.Loading}
             icon={<LoadingButtonIcon />}
@@ -659,11 +591,11 @@ const currentModelName = useMemo(() => {
         )}
 
         {/* 新增：错误提示 */}
-        {modelsError && (
+        {props.modelsError && (
           <ChatAction
-            text={modelsError}
+            text={props.modelsError}
             icon={<CloseIcon />}
-            onClick={() => showToast(modelsError)}
+            onClick={() => showToast(props.modelsError)}
           />
         )}
         {couldStop && (
@@ -1053,6 +985,11 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
 function _Chat() {
   type RenderMessage = ChatMessage & { preview?: boolean };
 
+  // ✅ 组件内部声明状态
+  const [models, setModels] = useState<Model[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const config = useAppConfig();
@@ -1063,26 +1000,8 @@ function _Chat() {
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
-  // 新增：接口数据状态
-  const [models, setModels] = useState<any[]>([]); // 实际应定义正确的模型类型
-  const [modelsLoading, setModelsLoading] = useState(true);
-  const [modelsError, setModelsError] = useState<string | null>(null);
-  // const allModels = useAllModels();
-  // const models = useMemo(() => {
-  //   const filteredModels = allModels.filter((m) => m.available);
-  //   const defaultModel = filteredModels.find((m) => m.isDefault);
 
-  //   if (defaultModel) {
-  //     const arr = [
-  //       defaultModel,
-  //       ...filteredModels.filter((m) => m !== defaultModel),
-  //     ];
-  //     return arr;
-  //   } else {
-  //     return filteredModels;
-  //   }
-  // }, [allModels]);
-  // 新增：接口数据获取
+  // ✅ 组件内部获取模型数据
   useEffect(() => {
     const fetchModels = async () => {
       try {
@@ -1095,19 +1014,17 @@ function _Chat() {
         });
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
-        const result = await response.json();
-        if (result.code !== 200 || !Array.isArray(result.data)) {
+        const { code, data } = await response.json();
+        if (code !== 200 || !Array.isArray(data)) {
           throw new Error("Invalid model list response");
         }
 
-        // 转换接口数据格式以匹配原有逻辑
-        const formattedModels = result.data.map(model => ({
-          name: model.modelId, // 假设接口中的模型ID字段为 modelId
-          displayName: model.name, // 显示名称
-          available: model.status === 1, // 假设状态 1 表示可用
-          isDefault: model.isDefault === 1, // 是否默认模型
+        const formattedModels: Model[] = data.map(model => ({
+          name: model.modelId,
+          displayName: model.name,
+          available: model.isEnable === "1",
           provider: {
-            providerName: model.type || ServiceProvider.OpenAI // 服务提供商
+            providerName: model.type || ServiceProvider.OpenAI
           }
         }));
 
@@ -1120,7 +1037,7 @@ function _Chat() {
     };
 
     fetchModels();
-  }, []); // 仅在组件挂载时获取一次模型数据
+  }, []); // 无依赖项，仅在组件挂载时请求一次
 
 
   const currentModelName = useMemo(() => {
@@ -2223,9 +2140,9 @@ function _Chat() {
               />
 
               <ChatActions
-               models={models}
-               modelsLoading={modelsLoading}
-               modelsError={modelsError}
+                models={models}
+                modelsLoading={modelsLoading}
+                modelsError={modelsError}
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
                 setUploading={setUploading}
@@ -2279,8 +2196,8 @@ function _Chat() {
                     defaultSelectedValue={`${currentModel}@${currentProviderName}`}
                     items={models.map((m) => ({
                       title: `${m.displayName}${m?.provider?.providerName
-                          ? " (" + m?.provider?.providerName + ")"
-                          : ""
+                        ? " (" + m?.provider?.providerName + ")"
+                        : ""
                         }`,
                       value: `${m.name}@${m?.provider?.providerName}`,
                     }))}

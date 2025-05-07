@@ -561,7 +561,7 @@ export function ChatActions(props: {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch("http://140.143.208.64:8080/system/model/list", {
+        const response = await fetch("http://140.143.208.64:8080/system/model/getUserModelByLogin", {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -569,18 +569,19 @@ export function ChatActions(props: {
           },
         });
         if (!response.ok) throw new Error("模型列表获取失败");
-        const { code, rows } = await response.json();
+        const { code, data } = await response.json();
+        
+        const rows = data
         if (code !== 200 || !Array.isArray(rows)) {
           throw new Error("Failed to load models");
         }
-
         // 转换接口数据到应用所需的 Model 格式
         const formattedModels: Model[] = rows.map(model => ({
           name: model.modelId,
-          displayName: model.modelName,
+          displayName: model.name,
           available: model.isEnable === "1", // isEnable=1 表示可用
           provider: {
-            providerName: model.modelName || ServiceProvider.OpenAI // 根据 type 映射服务提供商
+            providerName: model.type || ServiceProvider.OpenAI // 根据 type 映射服务提供商
           }
         }));
         setModels(formattedModels);
@@ -594,13 +595,12 @@ export function ChatActions(props: {
     fetchModels();
   }, []); // 仅在组件挂载时获取一次
 
-  const currentModelName = useMemo(() => {
-    const model = models.find(m =>
-      m.name === currentModel &&
-      m.provider.providerName === currentProviderName
-    );
-    return model?.displayName || "";
-  }, [models, currentModel, currentProviderName]);
+// 使用父组件传递的 models
+const currentModelName = useMemo(() => {
+  return models.find(m => 
+    m.name === currentModel && m.provider.providerName === currentProviderName
+  )?.displayName || "";
+}, [models, currentModel, currentProviderName]);
 
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showPluginSelector, setShowPluginSelector] = useState(false);
@@ -1086,7 +1086,7 @@ function _Chat() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch("http://140.143.208.64:8080/system/model/list", {
+        const response = await fetch("http://140.143.208.64:8080/system/model/getUserModelByLogin", {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -1103,11 +1103,11 @@ function _Chat() {
         // 转换接口数据格式以匹配原有逻辑
         const formattedModels = result.data.map(model => ({
           name: model.modelId, // 假设接口中的模型ID字段为 modelId
-          displayName: model.modelName, // 显示名称
+          displayName: model.name, // 显示名称
           available: model.status === 1, // 假设状态 1 表示可用
           isDefault: model.isDefault === 1, // 是否默认模型
           provider: {
-            providerName: model.modelName || ServiceProvider.OpenAI // 服务提供商
+            providerName: model.type || ServiceProvider.OpenAI // 服务提供商
           }
         }));
 
@@ -2223,6 +2223,9 @@ function _Chat() {
               />
 
               <ChatActions
+               models={models}
+               modelsLoading={modelsLoading}
+               modelsError={modelsError}
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
                 setUploading={setUploading}

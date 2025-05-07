@@ -24,7 +24,8 @@ function MaskItem(props: { mask: Mask; onClick?: () => void }) {
     <div className={styles["mask"]} onClick={props.onClick}>
       <MaskAvatar
         avatar={props.mask.avatar}
-        model={props.mask.name}
+        model={props.mask.name}        
+        style={{border:'1px solid red'}}
       />
       <div className={clsx(styles["mask-name"], "one-line")}>
         {props.mask.name}
@@ -42,7 +43,7 @@ const useMaskGroup = () => {
     const fetchGroups = async () => {
       try {
         const response = await fetch(
-          'http://140.143.208.64:8080/system/model/list',
+          'http://140.143.208.64:8080/system/model/getUserModelByLogin',
           {
             method: 'GET',
             headers: {
@@ -59,8 +60,8 @@ const useMaskGroup = () => {
         const data = await response.json();
         
         // 关键修改：确认data.data是否为数组
-        if (data.code === 200 && Array.isArray(data.rows)) {
-          setGroups(data.rows);
+        if (data.code === 200 && Array.isArray(data.data)) {
+          setGroups(data.data);
         } else {
           throw new Error(data.msg || 'Invalid API response format');
         }

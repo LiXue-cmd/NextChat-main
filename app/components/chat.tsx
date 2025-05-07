@@ -1056,7 +1056,7 @@ function _Chat() {
     if (isUnavailableModel && models.length > 0) {
       const nextModel = models.find(m => m.isDefault) || models[0];
       chatStore.updateTargetSession(session, (session) => {
-        session.mask.modelConfig.model = nextModel.name;
+        session.mask.modelConfig.model = nextModel.displayName;
         session.mask.modelConfig.providerName = nextModel.provider.providerName;
       });
       showToast(nextModel.displayName || nextModel.name);

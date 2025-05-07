@@ -1004,7 +1004,7 @@ export const useChatStore = createPersistStore(
         const index = sessions.findIndex((s) => s.id === targetSession.id);
         if (index < 0) return;
         updater(sessions[index]);
-        set(() => ({ sessions }));
+        // set(() => ({ sessions }));
       },
       // 移除 clearAllData 方法中的缓存清除逻辑
       async clearAllData() {

@@ -109,7 +109,8 @@ import {
   UNFINISHED_INPUT,
 } from "../constant";
 import { Avatar } from "./emoji";
-import { ContextPrompts, MaskAvatar, MaskConfig } from "./mask";
+import MaskAvatar from "./mask";
+import { ContextPrompts, MaskConfig } from "./mask";
 import { useMaskStore } from "../store/mask";
 import { ChatCommandPrefix, useChatCommand, useCommand } from "../command";
 import { prettyObject } from "../utils/format";
@@ -125,8 +126,18 @@ import { getModelProvider } from "../utils/model";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
+import Cookies from 'js-cookie';
+
+import { useModelStore } from '../context/ModelContext';
 
 const safeStorage = safeLocalStorage();
+
+interface Model {
+  name: string; // 模型 ID（modelId）
+  displayName: string; // 模型显示名称（modelName）
+  available: boolean; // 是否可用（isEnable === "1"）
+  provider: { providerName: ServiceProvider }; // 服务提供商
+}
 
 const ttsPlayer = createTTSPlayer();
 
@@ -241,7 +252,7 @@ function PromptToast(props: {
 
   return (
     <div className={styles["prompt-toast"]} key="prompt-toast">
-      {props.showToast && context.length > 0 && (
+      {props.showToast && Array.isArray(context) && context.length > 0 && (
         <div
           className={clsx(styles["prompt-toast-inner"], "clickable")}
           role="button"
@@ -503,6 +514,9 @@ export function ChatActions(props: {
   setShowShortcutKeyModal: React.Dispatch<React.SetStateAction<boolean>>;
   setUserInput: (input: string) => void;
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
+  models: Model[];
+  modelsLoading: boolean;
+  modelsError: string | null;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
@@ -529,29 +543,14 @@ export function ChatActions(props: {
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
-  const allModels = useAllModels();
-  const models = useMemo(() => {
-    const filteredModels = allModels.filter((m) => m.available);
-    const defaultModel = filteredModels.find((m) => m.isDefault);
 
-    if (defaultModel) {
-      const arr = [
-        defaultModel,
-        ...filteredModels.filter((m) => m !== defaultModel),
-      ];
-      return arr;
-    } else {
-      return filteredModels;
-    }
-  }, [allModels]);
+  // 直接使用 props 中的模型数据
   const currentModelName = useMemo(() => {
-    const model = models.find(
-      (m) =>
-        m.name == currentModel &&
-        m?.provider?.providerName == currentProviderName,
-    );
-    return model?.displayName ?? "";
-  }, [models, currentModel, currentProviderName]);
+    return props.models.find(m =>
+      m.name === currentModel && m.provider.providerName === currentProviderName
+    )?.displayName || "";
+  }, [props.models, currentModel, currentProviderName]);
+
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showPluginSelector, setShowPluginSelector] = useState(false);
   const [showUploadImage, setShowUploadImage] = useState(false);
@@ -569,36 +568,39 @@ export function ChatActions(props: {
 
   const isMobileScreen = useMobileScreen();
 
+  // 修改后的 useEffect，确保 models 状态已定义
   useEffect(() => {
-    const show = isVisionModel(currentModel);
-    setShowUploadImage(show);
-    if (!show) {
-      props.setAttachImages([]);
-      props.setUploading(false);
-    }
-
-    // if current model is not available
-    // switch to first available model
-    const isUnavailableModel = !models.some((m) => m.name === currentModel);
-    if (isUnavailableModel && models.length > 0) {
-      // show next model to default model if exist
-      let nextModel = models.find((model) => model.isDefault) || models[0];
+    const isUnavailableModel = !props.models.some(m => m.name === currentModel);
+    if (isUnavailableModel && props.models.length > 0) {
+      const nextModel = props.models.find(m => m.isDefault) || props.models[0];
       chatStore.updateTargetSession(session, (session) => {
         session.mask.modelConfig.model = nextModel.name;
-        session.mask.modelConfig.providerName = nextModel?.provider
-          ?.providerName as ServiceProvider;
+        session.mask.modelConfig.providerName = nextModel.provider.providerName;
       });
-      showToast(
-        nextModel?.provider?.providerName == "ByteDance"
-          ? nextModel.displayName
-          : nextModel.name,
-      );
+      showToast(nextModel.displayName || nextModel.name);
     }
-  }, [chatStore, currentModel, models, session]);
+  }, [chatStore, currentModel, props.models, session]); // 确保依赖项中的 models 已定义
 
   return (
     <div className={styles["chat-input-actions"]}>
       <>
+        {/* 新增：加载状态提示 */}
+        {props.modelsLoading && (
+          <ChatAction
+            text={Locale.Loading}
+            icon={<LoadingButtonIcon />}
+            onClick={() => { }}
+          />
+        )}
+
+        {/* 新增：错误提示 */}
+        {props.modelsError && (
+          <ChatAction
+            text={props.modelsError}
+            icon={<CloseIcon />}
+            onClick={() => showToast(props.modelsError)}
+          />
+        )}
         {couldStop && (
           <ChatAction
             onClick={stopAll}
@@ -650,13 +652,13 @@ export function ChatActions(props: {
           icon={<PromptIcon />}
         />
 
-        <ChatAction
+        {/* <ChatAction
           onClick={() => {
             navigate(Path.Masks);
           }}
           text={Locale.Chat.InputActions.Masks}
           icon={<MaskIcon />}
-        />
+        /> */}
 
         <ChatAction
           text={Locale.Chat.InputActions.Clear}
@@ -682,13 +684,10 @@ export function ChatActions(props: {
         {showModelSelector && (
           <Selector
             defaultSelectedValue={`${currentModel}@${currentProviderName}`}
-            items={models.map((m) => ({
-              title: `${m.displayName}${
-                m?.provider?.providerName
-                  ? " (" + m?.provider?.providerName + ")"
-                  : ""
-              }`,
-              value: `${m.name}@${m?.provider?.providerName}`,
+            // 修改：使用接口返回的 models 生成选项
+            items={props.models.map(m => ({
+              title: `${m.displayName} (${m.provider.providerName})`,
+              value: `${m.name}@${m.provider.providerName}`
             }))}
             onClose={() => setShowModelSelector(false)}
             onSelection={(s) => {
@@ -701,7 +700,7 @@ export function ChatActions(props: {
                 session.mask.syncGlobalConfig = false;
               });
               if (providerName == "ByteDance") {
-                const selectedModel = models.find(
+                const selectedModel = props.models.find(
                   (m) =>
                     m.name == model &&
                     m?.provider?.providerName == providerName,
@@ -987,7 +986,14 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
 }
 
 function _Chat() {
+  const { groups, loading, error } = useModelStore();
+  console.log('useModgroupselStore',groups)
   type RenderMessage = ChatMessage & { preview?: boolean };
+
+  // ✅ 组件内部声明状态
+  const [models, setModels] = useState<Model[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState<string | null>(null);
 
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
@@ -999,21 +1005,27 @@ function _Chat() {
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
-  const allModels = useAllModels();
-  const models = useMemo(() => {
-    const filteredModels = allModels.filter((m) => m.available);
-    const defaultModel = filteredModels.find((m) => m.isDefault);
 
-    if (defaultModel) {
-      const arr = [
-        defaultModel,
-        ...filteredModels.filter((m) => m !== defaultModel),
-      ];
-      return arr;
-    } else {
-      return filteredModels;
-    }
-  }, [allModels]);
+  // ✅ 组件内部获取模型数据
+  // ✅ 组件内部获取模型数据（只在挂载时请求一次）
+  useEffect(() => {
+    const fetchModels = async () => {
+      const formattedModels: Model[] = groups.map(model => ({
+        name: model.name,
+        displayName: model.name, // 假设这里需要正确映射显示名称
+        available: model.isEnable === "1",
+        provider: {
+          providerName: model.type || ServiceProvider.OpenAI
+        }
+      }));
+
+      setModels(formattedModels);
+    };
+
+    fetchModels();
+  }, []); // ✅ 依赖项为空数组，仅在组件挂载时执行一次
+
+
   const currentModelName = useMemo(() => {
     const model = models.find(
       (m) =>
@@ -1023,8 +1035,21 @@ function _Chat() {
     return model?.displayName ?? "";
   }, [models, currentModel, currentProviderName]);
 
+  // 模型不可用处理（使用新的 models 数据）
+  useEffect(() => {
+    const isUnavailableModel = !models.some(m => m.name === currentModel);
+    if (isUnavailableModel && models.length > 0) {
+      const nextModel = models.find(m => m.isDefault) || models[0];
+      chatStore.updateTargetSession(session, (session) => {
+        session.mask.modelConfig.model = nextModel.displayName;
+        session.mask.modelConfig.providerName = nextModel.provider.providerName;
+      });
+      showToast(nextModel.displayName || nextModel.name);
+    }
+  }, [chatStore, currentModel, models, session]);
+
   const [showModelSelector, setShowModelSelector] = useState(false);
-  
+
   const [showExport, setShowExport] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1037,9 +1062,9 @@ function _Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolledToBottom = scrollRef?.current
     ? Math.abs(
-        scrollRef.current.scrollHeight -
-          (scrollRef.current.scrollTop + scrollRef.current.clientHeight),
-      ) <= 1
+      scrollRef.current.scrollHeight -
+      (scrollRef.current.scrollTop + scrollRef.current.clientHeight),
+    ) <= 1
     : false;
   const isAttachWithTop = useMemo(() => {
     const lastMessage = scrollRef.current?.lastElementChild as HTMLElement;
@@ -1125,12 +1150,12 @@ function _Chat() {
     if (n === 0) {
       setPromptHints([]);
       setModifiedInput('')
-    } else{
-      if(text.includes("@") &&  !modifiedInput){
+    } else {
+      if (text.includes("@") && !modifiedInput) {
         console.log('true')
         setShowModelSelector(true);
-      }else{    
-        console.log('false')    
+      } else {
+        console.log('false')
         setShowModelSelector(false);
         if (text.match(ChatCommandPrefix)) {
           setPromptHints(chatCommands.search(text));
@@ -1374,19 +1399,28 @@ function _Chat() {
   }
 
   const context: RenderMessage[] = useMemo(() => {
-    return session.mask.hideContext ? [] : session.mask.context.slice();
-  }, [session.mask.context, session.mask.hideContext]);
+    const contextMessages = session.mask?.hideContext
+      ? []
+      : (session.mask?.context || []).slice();
 
-  if (
-    context.length === 0 &&
-    session.messages.at(0)?.content !== BOT_HELLO.content
-  ) {
-    const copiedHello = Object.assign({}, BOT_HELLO);
-    if (!accessStore.isAuthorized()) {
-      copiedHello.content = Locale.Error.Unauthorized;
+    if (
+      contextMessages.length === 0 &&
+      session.messages.at(0)?.content !== BOT_HELLO.content
+    ) {
+      const copiedHello = Object.assign({}, BOT_HELLO);
+      if (!accessStore.isAuthorized()) {
+        // 确保Unauthorized是一个字符串
+        // copiedHello.content = typeof Locale.Error.Unauthorized === 'string' 
+        //   ? Locale.Error.Unauthorized 
+        //   : JSON.stringify(Locale.Error.Unauthorized);
+        // 明确获取国际化文本的具体字段（假设 fUnauthorized 是错误消息字段）
+        copiedHello.content = Locale.Error.Unauthorized || "未授权访问";
+      }
+      contextMessages.push(copiedHello);
     }
-    context.push(copiedHello);
-  }
+
+    return contextMessages;
+  }, [session.mask?.context, session.mask?.hideContext, accessStore]);
 
   // preview messages
   const renderMessages = useMemo(() => {
@@ -1395,27 +1429,27 @@ function _Chat() {
       .concat(
         isLoading
           ? [
-              {
-                ...createMessage({
-                  role: "assistant",
-                  content: "……",
-                }),
-                preview: true,
-              },
-            ]
+            {
+              ...createMessage({
+                role: "assistant",
+                content: "……",
+              }),
+              preview: true,
+            },
+          ]
           : [],
       )
       .concat(
         userInput.length > 0 && config.sendPreviewBubble
           ? [
-              {
-                ...createMessage({
-                  role: "user",
-                  content: userInput,
-                }),
-                preview: true,
-              },
-            ]
+            {
+              ...createMessage({
+                role: "user",
+                content: userInput,
+              }),
+              preview: true,
+            },
+          ]
           : [],
       );
   }, [
@@ -1512,7 +1546,7 @@ function _Chat() {
         if (payload.key || payload.url) {
           showConfirm(
             Locale.URLCommand.Settings +
-              `\n${JSON.stringify(payload, null, 4)}`,
+            `\n${JSON.stringify(payload, null, 4)}`,
           ).then((res) => {
             if (!res) return;
             if (payload.key) {
@@ -1749,7 +1783,9 @@ function _Chat() {
               )}
               onClickCapture={() => setIsEditingMessage(true)}
             >
-              {!session.topic ? DEFAULT_TOPIC : session.topic}
+              {/* {session.messages[0].content ? session.messages[0].content : DEFAULT_TOPIC} */}
+              {session.topic}
+              {/* {!session.topic ? DEFAULT_TOPIC : session.topic} */}
             </div>
             <div className="window-header-sub-title">
               {Locale.Chat.SubTitle(session.messages.length)}
@@ -2051,7 +2087,7 @@ function _Chat() {
                                       <img
                                         className={
                                           styles[
-                                            "chat-message-item-image-multi"
+                                          "chat-message-item-image-multi"
                                           ]
                                         }
                                         key={index}
@@ -2077,12 +2113,12 @@ function _Chat() {
                           </div>
                         </div>
                       </div>
-                      {shouldShowClearContextDivider && <ClearContextDivider />}
+                      {/* {shouldShowClearContextDivider && <ClearContextDivider />} */}
                     </Fragment>
                   );
                 })}
             </div>
-            
+
             <div className={styles["chat-input-panel"]}>
               <PromptHints
                 prompts={promptHints}
@@ -2090,6 +2126,9 @@ function _Chat() {
               />
 
               <ChatActions
+                models={models}
+                modelsLoading={modelsLoading}
+                modelsError={modelsError}
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
                 setUploading={setUploading}
@@ -2137,20 +2176,20 @@ function _Chat() {
                     fontFamily: config.fontFamily,
                   }}
                 />
-              {/* @功能新增 */}
+                {/* @功能新增 */}
                 {showModelSelector && (
                   <Selector
                     defaultSelectedValue={`${currentModel}@${currentProviderName}`}
                     items={models.map((m) => ({
-                      title: `${m.displayName}${
-                        m?.provider?.providerName
-                          ? " (" + m?.provider?.providerName + ")"
-                          : ""
-                      }`,
-                      value: `${m.name}@${m?.provider?.providerName}`,
+                      title: `${m.displayName}${m?.provider?.providerName
+                        ? " (" + m?.provider?.providerName + ")"
+                        : ""
+                        }`,
+                      value: `${m.displayName}@${m?.provider?.providerName}`,
                     }))}
                     onClose={() => setShowModelSelector(false)}
                     onSelection={(s) => {
+                      console.log('s',s)
                       if (s.length === 0) return;
                       const [model, providerName] = getModelProvider(s[0]);
                       chatStore.updateTargetSession(session, (session) => {
@@ -2167,14 +2206,15 @@ function _Chat() {
                         );
                         showToast(selectedModel?.displayName ?? "");
                       } else {
-                        if(userInput === '@' && !modifiedInput){
+                        if (userInput === '@' && !modifiedInput) {
                           const newInput = userInput + " " + model + " ";
-                            setModifiedInput(() => {
+                          setModifiedInput(() => {
                             return newInput;
                           });
                         }
+                        console.log("model: ", model);
                         setUserInput((prevInput) => prevInput + " " + model + " ");
-                        
+
                       }
                     }}
                   />

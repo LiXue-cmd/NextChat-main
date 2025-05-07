@@ -12,7 +12,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Mask, useMaskStore } from "../store/mask";
 import Locale from "../locales";
 import { useAppConfig, useChatStore } from "../store";
-import { MaskAvatar } from "./mask";
+import  MaskAvatar  from "./mask";
 import { useCommand } from "../command";
 import { showConfirm } from "./ui-lib";
 import { BUILTIN_MASK_STORE } from "../masks";
@@ -23,16 +23,20 @@ function MaskItem(props: { mask: Mask; onClick?: () => void }) {
   return (
     <div className={styles["mask"]} onClick={props.onClick}>
       <MaskAvatar
-        avatar={props.mask.avatar}
+        avatar={props.mask.avatarUrl || ""} // 添加默认值
         model={props.mask.name}
       />
       <div className={clsx(styles["mask-name"], "one-line")}>
         {props.mask.name}
+        </div>
       </div>
-    </div>
-  );
+    );
 }
-
+interface Mask {
+  name: string;
+  avatarUrl: string; // 新增的存储图片地址的字段
+  // 其他可能的字段...
+}
 const useMaskGroup = () => {
   const [groups, setGroups] = useState<Mask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +46,7 @@ const useMaskGroup = () => {
     const fetchGroups = async () => {
       try {
         const response = await fetch(
-          'http://140.143.208.64:8080/system/model/list',
+          'http://140.143.208.64:8080/system/model/getUserModelByLogin',
           {
             method: 'GET',
             headers: {
@@ -59,9 +63,11 @@ const useMaskGroup = () => {
         const data = await response.json();
         
         // 关键修改：确认data.data是否为数组
-        if (data.code === 200 && Array.isArray(data.rows)) {
-          setGroups(data.rows);
-        } else {
+        if (data.code === 200 && Array.isArray(data.data)) {
+          setGroups(data.data);
+        } else if(data.code === 401){
+          window.location.href = '/login';
+        }else{
           throw new Error(data.msg || 'Invalid API response format');
         }
       } catch (err) {
@@ -72,6 +78,14 @@ const useMaskGroup = () => {
     };
 
     fetchGroups();
+    // 添加窗口大小变化监听
+    const handleResize = () => {
+      // 如果需要在窗口大小变化时重新获取数据，可以取消下面的注释
+      // fetchGroups();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   return { groups, loading, error };
@@ -183,14 +197,19 @@ export function NewChat() {
         />
       </div>
 
+
+
+
       <div className={styles["masks"]} ref={maskRef}>
         {Array.isArray(groups) ? (
           groups.map((mask, index) => (
+            <div key={index} className={styles["mask-row"]}>
             <MaskItem
               key={index}
               mask={mask}
               onClick={() => startChat(mask)}
             />
+            </div>
           ))
         ) : (
           <div className="text-center text-gray-500 py-8">

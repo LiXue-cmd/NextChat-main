@@ -179,11 +179,12 @@ export class ClientApi {
     }
   }
 
-  config() {}
+  config() { }
 
-  prompts() {}
+  prompts() { }
 
-  masks() {}
+  masks() { }
+  
   //查询历史记录
   async getChatLogs() {
     try {
@@ -200,13 +201,17 @@ export class ClientApi {
       }
 
       const data = await response.json();
-      return data.data;
+      if(data.code === 401){
+        window.location.href = '/login';
+        return null;
+      }else{
+        return data.data;
+      }
     } catch (error) {
       console.error('Error fetching chat logs:', error);
       return null;
     }
   }
-
   async share(messages: ChatMessage[], avatarUrl: string | null = null) {
     const msgs = messages
       .map((m) => ({
@@ -274,11 +279,33 @@ export function getHeaders(ignoreHeaders: boolean = false) {
   const clientConfig = getClientConfig();
 
   function getConfig() {
-    const modelConfig = chatStore.currentSession().mask.modelConfig;
+    // 检查会话是否存在
+    const session = chatStore.currentSession();
+    if (!session) {
+      // 如果会话不存在，返回默认配置
+      return {
+        isGoogle: false,
+        isAzure: false,
+        isAnthropic: false,
+        isBaidu: false,
+        isByteDance: false,
+        isAlibaba: false,
+        isMoonshot: false,
+        isIflytek: false,
+        isDeepSeek: false,
+        isXAI: false,
+        isChatGLM: false,
+        isSiliconFlow: false,
+        apiKey: "",
+        isEnabledAccessControl: accessStore.enabledAccessControl(),
+      };
+    }
+
+    const modelConfig = session.mask.modelConfig;
     const isGoogle = modelConfig.providerName === ServiceProvider.Google;
     const isAzure = modelConfig.providerName === ServiceProvider.Azure;
     const isAnthropic = modelConfig.providerName === ServiceProvider.Anthropic;
-    const isBaidu = modelConfig.providerName == ServiceProvider.Baidu;
+    const isBaidu = modelConfig.providerName === ServiceProvider.Baidu;
     const isByteDance = modelConfig.providerName === ServiceProvider.ByteDance;
     const isAlibaba = modelConfig.providerName === ServiceProvider.Alibaba;
     const isMoonshot = modelConfig.providerName === ServiceProvider.Moonshot;
@@ -290,30 +317,30 @@ export function getHeaders(ignoreHeaders: boolean = false) {
       modelConfig.providerName === ServiceProvider.SiliconFlow;
     const isEnabledAccessControl = accessStore.enabledAccessControl();
     const apiKey = isGoogle
-      ? accessStore.googleApiKey
+     ? accessStore.googleApiKey
       : isAzure
-      ? accessStore.azureApiKey
-      : isAnthropic
-      ? accessStore.anthropicApiKey
-      : isByteDance
-      ? accessStore.bytedanceApiKey
-      : isAlibaba
-      ? accessStore.alibabaApiKey
-      : isMoonshot
-      ? accessStore.moonshotApiKey
-      : isXAI
-      ? accessStore.xaiApiKey
-      : isDeepSeek
-      ? accessStore.deepseekApiKey
-      : isChatGLM
-      ? accessStore.chatglmApiKey
-      : isSiliconFlow
-      ? accessStore.siliconflowApiKey
-      : isIflytek
-      ? accessStore.iflytekApiKey && accessStore.iflytekApiSecret
-        ? accessStore.iflytekApiKey + ":" + accessStore.iflytekApiSecret
-        : ""
-      : accessStore.openaiApiKey;
+       ? accessStore.azureApiKey
+        : isAnthropic
+         ? accessStore.anthropicApiKey
+          : isByteDance
+           ? accessStore.bytedanceApiKey
+            : isAlibaba
+             ? accessStore.alibabaApiKey
+              : isMoonshot
+               ? accessStore.moonshotApiKey
+                : isXAI
+                 ? accessStore.xaiApiKey
+                  : isDeepSeek
+                   ? accessStore.deepseekApiKey
+                    : isChatGLM
+                     ? accessStore.chatglmApiKey
+                      : isSiliconFlow
+                       ? accessStore.siliconflowApiKey
+                        : isIflytek
+                         ? accessStore.iflytekApiKey && accessStore.iflytekApiSecret
+                          ? accessStore.iflytekApiKey + ":" + accessStore.iflytekApiSecret
+                           : ""
+                          : accessStore.openaiApiKey;
     return {
       isGoogle,
       isAzure,
@@ -334,12 +361,12 @@ export function getHeaders(ignoreHeaders: boolean = false) {
 
   function getAuthHeader(): string {
     return isAzure
-      ? "api-key"
+     ? "api-key"
       : isAnthropic
-      ? "x-api-key"
-      : isGoogle
-      ? "x-goog-api-key"
-      : "Authorization";
+       ? "x-api-key"
+        : isGoogle
+         ? "x-goog-api-key"
+          : "Authorization";
   }
 
   const {

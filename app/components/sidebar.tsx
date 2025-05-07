@@ -312,7 +312,7 @@ export function SideBar(props: { className?: string }) {
           }
         }}
       >
-        <ChatList narrow={shouldNarrow} />
+        <ChatList narrow={shouldNarrow}/>
       </SideBarBody>
       <SideBarTail
         primaryAction={

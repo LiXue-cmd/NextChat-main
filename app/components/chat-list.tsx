@@ -13,7 +13,7 @@ import { useChatStore } from "../store";
 import Locale from "../locales";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Path } from "../constant";
-import { MaskAvatar } from "./mask";
+import  MaskAvatar  from "./mask";
 import { Mask } from "../store/mask";
 import { useRef, useEffect } from "react";
 import { showConfirm } from "./ui-lib";
@@ -130,7 +130,6 @@ export function ChatList(props: { narrow?: boolean }) {
 
     moveSession(source.index, destination.index);
   };
-
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <Droppable droppableId="chat-list">
@@ -143,6 +142,7 @@ export function ChatList(props: { narrow?: boolean }) {
             {/* //查询历史记录数据展示 */}
             {sessions.map((item, i) => (
               <ChatItem
+                // title={item.messages[0].content}
                 title={item.topic}
                 time={new Date(item.lastUpdate).toLocaleString()}
                 count={item.messages.length}

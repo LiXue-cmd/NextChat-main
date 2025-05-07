@@ -35,8 +35,8 @@ export async function fetchCacheData(forceRefresh = false) {
         const data = await response.json();
         
         // 缓存数据到本地存储
-        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-        localStorage.setItem(`${CACHE_KEY}-timestamp`, Date.now().toString());
+        // localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        // localStorage.setItem(`${CACHE_KEY}-timestamp`, Date.now().toString());
         
         return data;
     } catch (error) {

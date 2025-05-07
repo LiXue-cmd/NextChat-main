@@ -56,7 +56,11 @@ import {
 } from "@hello-pangea/dnd";
 import { getMessageTextContent } from "../utils";
 import clsx from "clsx";
-
+interface MaskAvatarProps {
+  avatar: string;
+  model: string;
+  style?: React.CSSProperties;
+}
 // drag and drop helper function
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
   const result = [...list];
@@ -65,13 +69,14 @@ function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
   return result;
 }
 
-export function MaskAvatar(props: { avatar: string; model?: ModelType }) {
-  return props.avatar !== DEFAULT_MASK_AVATAR ? (
-    <Avatar avatar={props.avatar} />
-  ) : (
-    <Avatar model={props.model} />
+const MaskAvatar: React.FC<MaskAvatarProps> = ({ avatar, model, style }) => {
+  return (
+    <div style={style}>
+      <img src={avatar} alt={model} style={{width:'30px',height:'30px'}} />
+    </div>
   );
-}
+};
+
 
 export function MaskConfig(props: {
   mask: Mask;
@@ -680,3 +685,4 @@ export function MaskPage() {
     </ErrorBoundary>
   );
 }
+export default MaskAvatar;

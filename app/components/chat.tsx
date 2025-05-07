@@ -125,8 +125,16 @@ import { getModelProvider } from "../utils/model";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
+import Cookies from 'js-cookie';
 
 const localStorage = safeLocalStorage();
+
+interface Model {
+  name: string; // 模型 ID（modelId）
+  displayName: string; // 模型显示名称（modelName）
+  available: boolean; // 是否可用（isEnable === "1"）
+  provider: { providerName: ServiceProvider }; // 服务提供商
+}
 
 const ttsPlayer = createTTSPlayer();
 
@@ -529,29 +537,71 @@ export function ChatActions(props: {
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
-  const allModels = useAllModels();
-  const models = useMemo(() => {
-    const filteredModels = allModels.filter((m) => m.available);
-    const defaultModel = filteredModels.find((m) => m.isDefault);
+  // const allModels = useAllModels();
+  // const models = useMemo(() => {
+  //   const filteredModels = allModels.filter((m) => m.available);
+  //   const defaultModel = filteredModels.find((m) => m.isDefault);
 
-    if (defaultModel) {
-      const arr = [
-        defaultModel,
-        ...filteredModels.filter((m) => m !== defaultModel),
-      ];
-      return arr;
-    } else {
-      return filteredModels;
-    }
-  }, [allModels]);
+  //   if (defaultModel) {
+  //     const arr = [
+  //       defaultModel,
+  //       ...filteredModels.filter((m) => m !== defaultModel),
+  //     ];
+  //     return arr;
+  //   } else {
+  //     return filteredModels;
+  //   }
+  // }, [allModels]);
+  // 新增：接口数据状态
+  const [models, setModels] = useState<any[]>([]); // 假设接口返回的模型类型
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+
+  // 新增：接口数据获取
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch("http://140.143.208.64:8080/system/model/list", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': Cookies.get('token') || '',
+          },
+        });
+        if (!response.ok) throw new Error("模型列表获取失败");
+        const { code, rows } = await response.json();
+        if (code !== 200 || !Array.isArray(rows)) {
+          throw new Error("Failed to load models");
+        }
+
+        // 转换接口数据到应用所需的 Model 格式
+        const formattedModels: Model[] = rows.map(model => ({
+          name: model.modelId,
+          displayName: model.modelName,
+          available: model.isEnable === "1", // isEnable=1 表示可用
+          provider: {
+            providerName: model.modelName || ServiceProvider.OpenAI // 根据 type 映射服务提供商
+          }
+        }));
+        setModels(formattedModels);
+      } catch (error: any) {
+        setModelsError(error.message || "获取模型列表失败");
+      } finally {
+        setModelsLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []); // 仅在组件挂载时获取一次
+
   const currentModelName = useMemo(() => {
-    const model = models.find(
-      (m) =>
-        m.name == currentModel &&
-        m?.provider?.providerName == currentProviderName,
+    const model = models.find(m =>
+      m.name === currentModel &&
+      m.provider.providerName === currentProviderName
     );
-    return model?.displayName ?? "";
+    return model?.displayName || "";
   }, [models, currentModel, currentProviderName]);
+
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showPluginSelector, setShowPluginSelector] = useState(false);
   const [showUploadImage, setShowUploadImage] = useState(false);
@@ -599,6 +649,23 @@ export function ChatActions(props: {
   return (
     <div className={styles["chat-input-actions"]}>
       <>
+        {/* 新增：加载状态提示 */}
+        {modelsLoading && (
+          <ChatAction
+            text={Locale.Loading}
+            icon={<LoadingButtonIcon />}
+            onClick={() => { }}
+          />
+        )}
+
+        {/* 新增：错误提示 */}
+        {modelsError && (
+          <ChatAction
+            text={modelsError}
+            icon={<CloseIcon />}
+            onClick={() => showToast(modelsError)}
+          />
+        )}
         {couldStop && (
           <ChatAction
             onClick={stopAll}
@@ -650,13 +717,13 @@ export function ChatActions(props: {
           icon={<PromptIcon />}
         />
 
-        <ChatAction
+        {/* <ChatAction
           onClick={() => {
             navigate(Path.Masks);
           }}
           text={Locale.Chat.InputActions.Masks}
           icon={<MaskIcon />}
-        />
+        /> */}
 
         <ChatAction
           text={Locale.Chat.InputActions.Clear}
@@ -682,13 +749,10 @@ export function ChatActions(props: {
         {showModelSelector && (
           <Selector
             defaultSelectedValue={`${currentModel}@${currentProviderName}`}
-            items={models.map((m) => ({
-              title: `${m.displayName}${
-                m?.provider?.providerName
-                  ? " (" + m?.provider?.providerName + ")"
-                  : ""
-              }`,
-              value: `${m.name}@${m?.provider?.providerName}`,
+            // 修改：使用接口返回的 models 生成选项
+            items={models.map(m => ({
+              title: `${m.displayName} (${m.provider.providerName})`,
+              value: `${m.name}@${m.provider.providerName}`
             }))}
             onClose={() => setShowModelSelector(false)}
             onSelection={(s) => {
@@ -999,21 +1063,66 @@ function _Chat() {
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
-  const allModels = useAllModels();
-  const models = useMemo(() => {
-    const filteredModels = allModels.filter((m) => m.available);
-    const defaultModel = filteredModels.find((m) => m.isDefault);
+  // 新增：接口数据状态
+  const [models, setModels] = useState<any[]>([]); // 实际应定义正确的模型类型
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  // const allModels = useAllModels();
+  // const models = useMemo(() => {
+  //   const filteredModels = allModels.filter((m) => m.available);
+  //   const defaultModel = filteredModels.find((m) => m.isDefault);
 
-    if (defaultModel) {
-      const arr = [
-        defaultModel,
-        ...filteredModels.filter((m) => m !== defaultModel),
-      ];
-      return arr;
-    } else {
-      return filteredModels;
-    }
-  }, [allModels]);
+  //   if (defaultModel) {
+  //     const arr = [
+  //       defaultModel,
+  //       ...filteredModels.filter((m) => m !== defaultModel),
+  //     ];
+  //     return arr;
+  //   } else {
+  //     return filteredModels;
+  //   }
+  // }, [allModels]);
+  // 新增：接口数据获取
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch("http://140.143.208.64:8080/system/model/list", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': Cookies.get('token') || '',
+          },
+        });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+
+        const result = await response.json();
+        if (result.code !== 200 || !Array.isArray(result.data)) {
+          throw new Error("Invalid model list response");
+        }
+
+        // 转换接口数据格式以匹配原有逻辑
+        const formattedModels = result.data.map(model => ({
+          name: model.modelId, // 假设接口中的模型ID字段为 modelId
+          displayName: model.modelName, // 显示名称
+          available: model.status === 1, // 假设状态 1 表示可用
+          isDefault: model.isDefault === 1, // 是否默认模型
+          provider: {
+            providerName: model.modelName || ServiceProvider.OpenAI // 服务提供商
+          }
+        }));
+
+        setModels(formattedModels);
+      } catch (error: any) {
+        setModelsError(error.message || "Failed to load models");
+      } finally {
+        setModelsLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []); // 仅在组件挂载时获取一次模型数据
+
+
   const currentModelName = useMemo(() => {
     const model = models.find(
       (m) =>
@@ -1023,8 +1132,21 @@ function _Chat() {
     return model?.displayName ?? "";
   }, [models, currentModel, currentProviderName]);
 
+  // 模型不可用处理（使用新的 models 数据）
+  useEffect(() => {
+    const isUnavailableModel = !models.some(m => m.name === currentModel);
+    if (isUnavailableModel && models.length > 0) {
+      const nextModel = models.find(m => m.isDefault) || models[0];
+      chatStore.updateTargetSession(session, (session) => {
+        session.mask.modelConfig.model = nextModel.name;
+        session.mask.modelConfig.providerName = nextModel.provider.providerName;
+      });
+      showToast(nextModel.displayName || nextModel.name);
+    }
+  }, [chatStore, currentModel, models, session]);
+
   const [showModelSelector, setShowModelSelector] = useState(false);
-  
+
   const [showExport, setShowExport] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1037,9 +1159,9 @@ function _Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolledToBottom = scrollRef?.current
     ? Math.abs(
-        scrollRef.current.scrollHeight -
-          (scrollRef.current.scrollTop + scrollRef.current.clientHeight),
-      ) <= 1
+      scrollRef.current.scrollHeight -
+      (scrollRef.current.scrollTop + scrollRef.current.clientHeight),
+    ) <= 1
     : false;
   const isAttachWithTop = useMemo(() => {
     const lastMessage = scrollRef.current?.lastElementChild as HTMLElement;
@@ -1125,12 +1247,12 @@ function _Chat() {
     if (n === 0) {
       setPromptHints([]);
       setModifiedInput('')
-    } else{
-      if(text.includes("@") &&  !modifiedInput){
+    } else {
+      if (text.includes("@") && !modifiedInput) {
         console.log('true')
         setShowModelSelector(true);
-      }else{    
-        console.log('false')    
+      } else {
+        console.log('false')
         setShowModelSelector(false);
         if (text.match(ChatCommandPrefix)) {
           setPromptHints(chatCommands.search(text));
@@ -1374,22 +1496,28 @@ function _Chat() {
   }
 
   const context: RenderMessage[] = useMemo(() => {
-    // 关键修改：安全访问 context 并确保其为数组类型
-    return session.mask?.hideContext 
-      ? [] 
+    const contextMessages = session.mask?.hideContext
+      ? []
       : (session.mask?.context || []).slice();
-  }, [session.mask?.context, session.mask?.hideContext]);
 
-  if (
-    context.length === 0 &&
-    session.messages.at(0)?.content !== BOT_HELLO.content
-  ) {
-    const copiedHello = Object.assign({}, BOT_HELLO);
-    if (!accessStore.isAuthorized()) {
-      copiedHello.content = Locale.Error.Unauthorized;
+    if (
+      contextMessages.length === 0 &&
+      session.messages.at(0)?.content !== BOT_HELLO.content
+    ) {
+      const copiedHello = Object.assign({}, BOT_HELLO);
+      if (!accessStore.isAuthorized()) {
+        // 确保Unauthorized是一个字符串
+        // copiedHello.content = typeof Locale.Error.Unauthorized === 'string' 
+        //   ? Locale.Error.Unauthorized 
+        //   : JSON.stringify(Locale.Error.Unauthorized);
+        // 明确获取国际化文本的具体字段（假设 fUnauthorized 是错误消息字段）
+        copiedHello.content = Locale.Error.Unauthorized || "未授权访问";
+      }
+      contextMessages.push(copiedHello);
     }
-    context.push(copiedHello);
-  }
+
+    return contextMessages;
+  }, [session.mask?.context, session.mask?.hideContext, accessStore]);
 
   // preview messages
   const renderMessages = useMemo(() => {
@@ -1398,27 +1526,27 @@ function _Chat() {
       .concat(
         isLoading
           ? [
-              {
-                ...createMessage({
-                  role: "assistant",
-                  content: "……",
-                }),
-                preview: true,
-              },
-            ]
+            {
+              ...createMessage({
+                role: "assistant",
+                content: "……",
+              }),
+              preview: true,
+            },
+          ]
           : [],
       )
       .concat(
         userInput.length > 0 && config.sendPreviewBubble
           ? [
-              {
-                ...createMessage({
-                  role: "user",
-                  content: userInput,
-                }),
-                preview: true,
-              },
-            ]
+            {
+              ...createMessage({
+                role: "user",
+                content: userInput,
+              }),
+              preview: true,
+            },
+          ]
           : [],
       );
   }, [
@@ -1515,7 +1643,7 @@ function _Chat() {
         if (payload.key || payload.url) {
           showConfirm(
             Locale.URLCommand.Settings +
-              `\n${JSON.stringify(payload, null, 4)}`,
+            `\n${JSON.stringify(payload, null, 4)}`,
           ).then((res) => {
             if (!res) return;
             if (payload.key) {
@@ -2056,7 +2184,7 @@ function _Chat() {
                                       <img
                                         className={
                                           styles[
-                                            "chat-message-item-image-multi"
+                                          "chat-message-item-image-multi"
                                           ]
                                         }
                                         key={index}
@@ -2087,7 +2215,7 @@ function _Chat() {
                   );
                 })}
             </div>
-            
+
             <div className={styles["chat-input-panel"]}>
               <PromptHints
                 prompts={promptHints}
@@ -2142,16 +2270,15 @@ function _Chat() {
                     fontFamily: config.fontFamily,
                   }}
                 />
-              {/* @功能新增 */}
+                {/* @功能新增 */}
                 {showModelSelector && (
                   <Selector
                     defaultSelectedValue={`${currentModel}@${currentProviderName}`}
                     items={models.map((m) => ({
-                      title: `${m.displayName}${
-                        m?.provider?.providerName
+                      title: `${m.displayName}${m?.provider?.providerName
                           ? " (" + m?.provider?.providerName + ")"
                           : ""
-                      }`,
+                        }`,
                       value: `${m.name}@${m?.provider?.providerName}`,
                     }))}
                     onClose={() => setShowModelSelector(false)}
@@ -2172,14 +2299,14 @@ function _Chat() {
                         );
                         showToast(selectedModel?.displayName ?? "");
                       } else {
-                        if(userInput === '@' && !modifiedInput){
+                        if (userInput === '@' && !modifiedInput) {
                           const newInput = userInput + " " + model + " ";
-                            setModifiedInput(() => {
+                          setModifiedInput(() => {
                             return newInput;
                           });
                         }
                         setUserInput((prevInput) => prevInput + " " + model + " ");
-                        
+
                       }
                     }}
                   />

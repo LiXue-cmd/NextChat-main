@@ -12,7 +12,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Mask, useMaskStore } from "../store/mask";
 import Locale from "../locales";
 import { useAppConfig, useChatStore } from "../store";
-import { MaskAvatar } from "./mask";
+import  MaskAvatar  from "./mask";
 import { useCommand } from "../command";
 import { showConfirm } from "./ui-lib";
 import { BUILTIN_MASK_STORE } from "../masks";
@@ -23,17 +23,20 @@ function MaskItem(props: { mask: Mask; onClick?: () => void }) {
   return (
     <div className={styles["mask"]} onClick={props.onClick}>
       <MaskAvatar
-        avatar={props.mask.avatar}
-        model={props.mask.name}        
-        style={{border:'1px solid red'}}
+        avatar={props.mask.avatarUrl || ""} // 添加默认值
+        model={props.mask.name}
       />
       <div className={clsx(styles["mask-name"], "one-line")}>
         {props.mask.name}
+        </div>
       </div>
-    </div>
-  );
+    );
 }
-
+interface Mask {
+  name: string;
+  avatarUrl: string; // 新增的存储图片地址的字段
+  // 其他可能的字段...
+}
 const useMaskGroup = () => {
   const [groups, setGroups] = useState<Mask[]>([]);
   const [loading, setLoading] = useState(true);

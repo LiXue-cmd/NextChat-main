@@ -201,7 +201,12 @@ export class ClientApi {
       }
 
       const data = await response.json();
-      return data.data;
+      if(data.code === 401){
+        window.location.href = '/login';
+        return null;
+      }else{
+        return data.data;
+      }
     } catch (error) {
       console.error('Error fetching chat logs:', error);
       return null;

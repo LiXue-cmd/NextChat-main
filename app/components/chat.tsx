@@ -1016,7 +1016,10 @@ function _Chat() {
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
         const { code, data } = await response.json();
-        if (code !== 200 || !Array.isArray(data)) {
+        
+        if(data.code === 401){
+          window.location.href = '/login';
+        }else if (code !== 200 || !Array.isArray(data)) {
           throw new Error("Invalid model list response");
         }
 

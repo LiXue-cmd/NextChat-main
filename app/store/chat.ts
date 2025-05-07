@@ -569,7 +569,12 @@ export const useChatStore = createPersistStore(
             if (!response.ok) throw new Error(`保存失败: HTTP ${response.status}`);
             const data = await response.json();
             console.log('[保存会话] 成功', data);
-            return data;
+            if(data.code === 401){
+              window.location.href = '/login';
+              return null
+            }else{
+              return data;
+            }
           } else {
             // 发送到后端
             const response = await fetch('http://140.143.208.64:8080/system/aiLog/saveOne', {
@@ -584,7 +589,12 @@ export const useChatStore = createPersistStore(
             if (!response.ok) throw new Error(`保存失败: HTTP ${response.status}`);
             const data = await response.json();
             console.log('[保存会话] 成功', data);
-            return data;
+            if(data.code === 401){
+              window.location.href = '/login';
+              return null
+            }else{
+              return data;
+            }            
           }
         } catch (error) {
           console.error('[保存会话] 失败', error);

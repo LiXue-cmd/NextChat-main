@@ -65,7 +65,9 @@ const useMaskGroup = () => {
         // 关键修改：确认data.data是否为数组
         if (data.code === 200 && Array.isArray(data.data)) {
           setGroups(data.data);
-        } else {
+        } else if(data.code === 401){
+          window.location.href = '/login';
+        }else{
           throw new Error(data.msg || 'Invalid API response format');
         }
       } catch (err) {

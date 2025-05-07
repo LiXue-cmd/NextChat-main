@@ -31,6 +31,11 @@ import { useAccessStore } from "../store";
 import clsx from "clsx";
 import { initializeMcpSystem, isMcpEnabled } from "../mcp/actions";
 
+// import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ModelProvider } from '../context/ModelContext';
+// import { new-chat } from './new-chat';
+// import Chat from './Chat';
+
 export function Loading(props: { noLogo?: boolean }) {
   return (
     <div className={clsx("no-dark", styles["loading-content"])}>
@@ -265,7 +270,11 @@ export function Home() {
   return (
     <ErrorBoundary>
       <Router>
+      <ModelProvider>
         <Screen />
+        {/* <Route path="/" element={<new-chat />} />
+            <Route path="/chat" element={<Chat />} /> */}
+            </ModelProvider>
       </Router>
     </ErrorBoundary>
   );

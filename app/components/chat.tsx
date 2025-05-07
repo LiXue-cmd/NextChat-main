@@ -128,6 +128,8 @@ import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
 import Cookies from 'js-cookie';
 
+import { useModelStore } from '../context/ModelContext';
+
 const localStorage = safeLocalStorage();
 
 interface Model {
@@ -984,6 +986,8 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
 }
 
 function _Chat() {
+  const { groups, loading, error } = useModelStore();
+  console.log('useModgroupselStore',groups)
   type RenderMessage = ChatMessage & { preview?: boolean };
 
   // ✅ 组件内部声明状态
@@ -1003,45 +1007,23 @@ function _Chat() {
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
 
   // ✅ 组件内部获取模型数据
+  // ✅ 组件内部获取模型数据（只在挂载时请求一次）
   useEffect(() => {
     const fetchModels = async () => {
-      try {
-        const response = await fetch("http://140.143.208.64:8080/system/model/getUserModelByLogin", {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': Cookies.get('token') || '',
-          },
-        });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-
-        const { code, data } = await response.json();
-        
-        if(code === 401){
-          window.location.href = '/login';
-        }else if (code !== 200 || !Array.isArray(data)) {
-          throw new Error("Invalid model list response");
+      const formattedModels: Model[] = groups.map(model => ({
+        name: model.name,
+        displayName: model.name, // 假设这里需要正确映射显示名称
+        available: model.isEnable === "1",
+        provider: {
+          providerName: model.type || ServiceProvider.OpenAI
         }
+      }));
 
-        const formattedModels: Model[] = data.map(model => ({
-          name: model.name,
-          displayName: model.name,
-          available: model.isEnable === "1",
-          provider: {
-            providerName: model.type || ServiceProvider.OpenAI
-          }
-        }));
-
-        setModels(formattedModels);
-      } catch (error: any) {
-        setModelsError(error.message || "Failed to load models");
-      } finally {
-        setModelsLoading(false);
-      }
+      setModels(formattedModels);
     };
 
     fetchModels();
-  }, []); // 无依赖项，仅在组件挂载时请求一次
+  }, []); // ✅ 依赖项为空数组，仅在组件挂载时执行一次
 
 
   const currentModelName = useMemo(() => {

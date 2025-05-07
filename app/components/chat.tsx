@@ -567,17 +567,17 @@ export function ChatActions(props: {
   const isMobileScreen = useMobileScreen();
 
   // 修改后的 useEffect，确保 models 状态已定义
-useEffect(() => {
-  const isUnavailableModel = !props.models.some(m => m.name === currentModel);
-  if (isUnavailableModel && props.models.length > 0) {
-    const nextModel = props.models.find(m => m.isDefault) || props.models[0];
-    chatStore.updateTargetSession(session, (session) => {
-      session.mask.modelConfig.model = nextModel.name;
-      session.mask.modelConfig.providerName = nextModel.provider.providerName;
-    });
-    showToast(nextModel.displayName || nextModel.name);
-  }
-}, [chatStore, currentModel, props.models, session]); // 确保依赖项中的 models 已定义
+  useEffect(() => {
+    const isUnavailableModel = !props.models.some(m => m.name === currentModel);
+    if (isUnavailableModel && props.models.length > 0) {
+      const nextModel = props.models.find(m => m.isDefault) || props.models[0];
+      chatStore.updateTargetSession(session, (session) => {
+        session.mask.modelConfig.model = nextModel.name;
+        session.mask.modelConfig.providerName = nextModel.provider.providerName;
+      });
+      showToast(nextModel.displayName || nextModel.name);
+    }
+  }, [chatStore, currentModel, props.models, session]); // 确保依赖项中的 models 已定义
 
   return (
     <div className={styles["chat-input-actions"]}>
@@ -2200,10 +2200,11 @@ function _Chat() {
                         ? " (" + m?.provider?.providerName + ")"
                         : ""
                         }`,
-                      value: `${m.name}@${m?.provider?.providerName}`,
+                      value: `${m.displayName}@${m?.provider?.providerName}`,
                     }))}
                     onClose={() => setShowModelSelector(false)}
                     onSelection={(s) => {
+                      console.log('s',s)
                       if (s.length === 0) return;
                       const [model, providerName] = getModelProvider(s[0]);
                       chatStore.updateTargetSession(session, (session) => {
@@ -2226,6 +2227,7 @@ function _Chat() {
                             return newInput;
                           });
                         }
+                        console.log("model: ", model);
                         setUserInput((prevInput) => prevInput + " " + model + " ");
 
                       }

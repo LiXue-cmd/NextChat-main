@@ -77,8 +77,11 @@ export async function preProcessImageContentBase(
   if (typeof content === "string") {
     return content;
   }
+  const contentArray = Array.isArray(content) 
+  ? content 
+  : content ? [content] : [];
   const result = [];
-  for (const part of content) {
+  for (const part of contentArray) {
     if (part?.type == "image_url" && part?.image_url?.url) {
       try {
         const url = await cacheImageToBase64Image(part?.image_url?.url);

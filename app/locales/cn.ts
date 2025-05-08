@@ -60,6 +60,7 @@ const cn = {
       RefreshToast: "已发送刷新标题请求",
       Speech: "朗读",
       StopSpeech: "停止",
+      QuoteReply:'引用'
     },
     Commands: {
       new: "新建聊天",

@@ -2,6 +2,7 @@ import { useDebouncedCallback } from "use-debounce";
 import React, {
   Fragment,
   RefObject,
+  use,
   useCallback,
   useEffect,
   useMemo,
@@ -130,6 +131,7 @@ import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
 import Cookies from 'js-cookie';
 
 import { useModelStore } from '../context/ModelContext';
+// const models = use
 // 导入 safeStorage
 import { safeStorage } from '../utils/storage';
 
@@ -994,7 +996,8 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
   );
 }
 
-function _Chat() {
+function _Chat() {  
+  const { groups, loading, error } = useModelStore();
   type RenderMessage = ChatMessage & { preview?: boolean };
 
   const chatStore = useChatStore();
@@ -1157,13 +1160,19 @@ function _Chat() {
   const [isQuoting, setIsQuoting] = useState(false);
 
   const onQuoteReply = (message: ChatMessage) => {
+    console.log("onQuoteReply", message);
     setQuotedMessage(message);
     setIsQuoting(true);
     const quoteText = `> ${getMessageTextContent(message)}\n\n`;
+    console.log("quoteText", quoteText);
     setUserInput(quoteText);
     inputRef.current?.focus();
+    // ✅ 新增：将光标定位到引用文本末尾，确保用户可直接输入
+    if (inputRef.current) {
+      const input = inputRef.current;
+      input.setSelectionRange(quoteText.length, quoteText.length); // 光标定位到末尾
+    }
   };
-
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages)) return;
     const matchCommand = chatCommands.match(userInput);
@@ -1174,34 +1183,75 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
-
-    // 处理引用消息
-    if (isQuoting) {
-      const fullMessage = {
-        ...createMessage({
-          role: "user",
-          content: userInput,
-        }),
-        quotedMessage: quotedMessage,
-      };
-      chatStore
-        .onUserInput(fullMessage, attachImages)
-        .then(() => setIsLoading(false));
-    } else {
-      chatStore
-        .onUserInput(userInput, attachImages)
-        .then(() => setIsLoading(false));
-    }
-
+    chatStore
+      .onUserInput(userInput, attachImages)
+      .then(() => setIsLoading(false));
     setAttachImages([]);
     chatStore.setLastInput(userInput);
     setUserInput("");
     setPromptHints([]);
-    setQuotedMessage(null);
-    setIsQuoting(false);
     if (!isMobileScreen) inputRef.current?.focus();
     setAutoScroll(true);
   };
+  // const doSubmit = (userInput: string) => {
+  //   if (userInput.trim() === "" && isEmpty(attachImages)) return;
+    
+  //   // const matchCommand = chatCommands.match(userInput);
+  //   // if (matchCommand.matched) {
+  //   //   setUserInput("");
+  //   //   setPromptHints([]);
+  //   //   matchCommand.invoke();
+  //   //   return;
+  //   // }
+    
+  //   setIsLoading(true);
+  
+  //   // 处理带引用的消息
+  //   let messageContent = userInput;
+    
+  //   // 如果是引用回复，构建 Markdown 格式的引用
+  //   if (isQuoting && quotedMessage) {
+  //     const quoteText = `> ${getMessageTextContent(quotedMessage)}\n\n`;
+      
+  //     // 确保用户没有删除引用标记
+  //     if (!userInput.startsWith('> ')) {
+  //       messageContent = quoteText + userInput;
+  //     }
+      
+  //     // 构建完整的消息对象，包含引用信息
+  //     const fullMessage = {
+  //       ...createMessage({
+  //         role: "user",
+  //         content: messageContent,
+  //       }),
+  //       quotedMessage: {
+  //         id: quotedMessage.id,
+  //         role: quotedMessage.role,
+  //         content: getMessageTextContent(quotedMessage),
+  //         // 可以添加更多需要的引用消息字段
+  //       },
+  //     };
+      
+  //     chatStore
+  //       .onUserInput(fullMessage, attachImages)
+  //       .then(() => setIsLoading(false));
+  //   } else {
+  //     // 普通消息
+  //     chatStore
+  //       .onUserInput(userInput, attachImages)
+  //       .then(() => setIsLoading(false));
+  //   }
+  
+  //   // 重置状态
+  //   setAttachImages([]);
+  //   chatStore.setLastInput(userInput);
+  //   setUserInput("");
+  //   setPromptHints([]);
+  //   setQuotedMessage(null);
+  //   setIsQuoting(false);
+  //   if (!isMobileScreen) inputRef.current?.focus();
+  //   setAutoScroll(true);
+  // };
 
   const onPromptSelect = (prompt: RenderPrompt) => {
     setTimeout(() => {
@@ -2167,9 +2217,9 @@ function _Chat() {
                   id="chat-input"
                   ref={inputRef}
                   className={styles["chat-input"]}
-                  // placeholder={isQuoting ? Locale.chat.InputReply : Locale.chat.Input}
-                  // placeholder={isQuoting ? Locale.Chat.InputReply(submitKey) : Locale.Chat.Input(submitKey)}
-                  onInput={(e) => onInput(e.currentTarget.value)}
+                  // ✅ 确保占位符正确（若 Locale.Chat.InputReply 是字符串，直接使用）
+                  placeholder={isQuoting ? Locale.Chat.InputReply : Locale.Chat.Input}
+                  onInput={(e) => onInput(e.currentTarget.value)} // 允许用户修改输入内容
                   value={userInput}
                   onKeyDown={onInputKeyDown}
                   onFocus={scrollToBottom}

@@ -514,6 +514,7 @@ export function Selector<T>(props: {
       <div className={styles["selector-content"]}>
         <List>
           {props.items.map((item, i) => {
+            console.log('item',item)
             const selected = selectedValues.includes(item.value);
             return (
               <ListItem

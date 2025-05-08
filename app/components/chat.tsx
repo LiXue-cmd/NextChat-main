@@ -701,7 +701,8 @@ export function ChatActions(props: {
             // 修改：使用接口返回的 models 生成选项
             items={props.models.map(m => ({
               title: `${m.displayName} (${m.provider.providerName})`,
-              value: `${m.name}@${m.provider.providerName}`
+              // value: `${m.name}@${m.provider.providerName}`,
+              value:`${m.avatarUrl}`
             }))}
             onClose={() => setShowModelSelector(false)}
             onSelection={(s) => {
@@ -785,6 +786,7 @@ export function ChatActions(props: {
           <ChatAction
             onClick={() => setShowStyleSelector(true)}
             text={currentStyle}
+            // text={Locale.Chat.ShortcutKey.Title}
             icon={<StyleIcon />}
           />
         )}
@@ -1198,65 +1200,6 @@ function _Chat() {
     if (!isMobileScreen) inputRef.current?.focus();
     setAutoScroll(true);
   };
-  // const doSubmit = (userInput: string) => {
-  //   if (userInput.trim() === "" && isEmpty(attachImages)) return;
-    
-  //   // const matchCommand = chatCommands.match(userInput);
-  //   // if (matchCommand.matched) {
-  //   //   setUserInput("");
-  //   //   setPromptHints([]);
-  //   //   matchCommand.invoke();
-  //   //   return;
-  //   // }
-    
-  //   setIsLoading(true);
-  
-  //   // 处理带引用的消息
-  //   let messageContent = userInput;
-    
-  //   // 如果是引用回复，构建 Markdown 格式的引用
-  //   if (isQuoting && quotedMessage) {
-  //     const quoteText = `> ${getMessageTextContent(quotedMessage)}\n\n`;
-      
-  //     // 确保用户没有删除引用标记
-  //     if (!userInput.startsWith('> ')) {
-  //       messageContent = quoteText + userInput;
-  //     }
-      
-  //     // 构建完整的消息对象，包含引用信息
-  //     const fullMessage = {
-  //       ...createMessage({
-  //         role: "user",
-  //         content: messageContent,
-  //       }),
-  //       quotedMessage: {
-  //         id: quotedMessage.id,
-  //         role: quotedMessage.role,
-  //         content: getMessageTextContent(quotedMessage),
-  //         // 可以添加更多需要的引用消息字段
-  //       },
-  //     };
-      
-  //     chatStore
-  //       .onUserInput(fullMessage, attachImages)
-  //       .then(() => setIsLoading(false));
-  //   } else {
-  //     // 普通消息
-  //     chatStore
-  //       .onUserInput(userInput, attachImages)
-  //       .then(() => setIsLoading(false));
-  //   }
-  
-  //   // 重置状态
-  //   setAttachImages([]);
-  //   chatStore.setLastInput(userInput);
-  //   setUserInput("");
-  //   setPromptHints([]);
-  //   setQuotedMessage(null);
-  //   setIsQuoting(false);
-  //   if (!isMobileScreen) inputRef.current?.focus();
-  //   setAutoScroll(true);
-  // };
 
   const onPromptSelect = (prompt: RenderPrompt) => {
     setTimeout(() => {
@@ -1992,12 +1935,12 @@ function _Chat() {
                                      <Avatar avatar="2699-fe0f" />
                                   ) : (
                                     <MaskAvatar
-                                      avatar={session.mask.avatar}
+                                      // avatar={session.mask.avatar}
+                                      avatar="http://140.143.208.64:8051/imgUrl/dify.png"
                                       model={
                                         message.model ||
                                         session.mask.modelConfig.model
                                       }
-                                      style={{ border: "6px solid green" }}
                                     />
                                   )}
                                 </>
@@ -2252,7 +2195,7 @@ function _Chat() {
                           : ""
                         }`,
                       value: `${m.name}@${m?.displayName}`,
-                      avatar: m.avatarUrl, // 新增avatar字段传递
+                      // value: `${m.avatarUrl}`, // 新增avatar字段传递
                     }))}
                     onClose={() => setShowModelSelector(false)}
                     onSelection={(s) => {

@@ -1006,33 +1006,31 @@ function _Chat() {
   const fontSize = config.fontSize;
   const fontFamily = config.fontFamily;
 
+  // 替换原有的models定义，使用groups映射
+  const formattedModels: Model[] = useMemo(() => {
+    return groups.map(model => ({
+      name: model.name, // 模型ID
+      displayName: model.displayName || model.name, // 使用正确的显示名称（假设model有displayName字段）
+      available: model.isEnable === "1", // 可用性状态
+      provider: {
+        providerName: model.type || ServiceProvider.OpenAI // 服务提供商类型
+      }
+    }));
+  }, [groups]); // 依赖groups变化
+
   // 为@功能增加
   const currentModel = session.mask.modelConfig.model;
   const currentProviderName =
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
-  const allModels = useAllModels();
-  const models = useMemo(() => {
-    const filteredModels = allModels.filter((m) => m.available);
-    const defaultModel = filteredModels.find((m) => m.isDefault);
-
-    if (defaultModel) {
-      const arr = [
-        defaultModel,
-        ...filteredModels.filter((m) => m !== defaultModel),
-      ];
-      return arr;
-    } else {
-      return filteredModels;
-    }
-  }, [allModels]);
+  // 使用formattedModels替换原来的models
   const currentModelName = useMemo(() => {
-    const model = models.find(
+    const model = formattedModels.find(
       (m) =>
-        m.name == currentModel &&
-        m?.provider?.providerName == currentProviderName,
+        m.name === currentModel && 
+        m.provider.providerName === currentProviderName
     );
     return model?.displayName ?? "";
-  }, [models, currentModel, currentProviderName]);
+  }, [formattedModels, currentModel, currentProviderName]);
 
   const [showModelSelector, setShowModelSelector] = useState(false);
 
@@ -2184,6 +2182,9 @@ function _Chat() {
               />
 
               <ChatActions
+                models={formattedModels} // 传递formattedModels
+                modelsLoading={loading} // 加载状态
+                modelsError={error} // 错误信息
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
                 setUploading={setUploading}
@@ -2236,7 +2237,7 @@ function _Chat() {
                 {showModelSelector && (
                   <Selector
                     defaultSelectedValue={`${currentModel}@${currentProviderName}`}
-                    items={models.map((m) => ({
+                    items={formattedModels.map((m) => ({
                       title: `${m.displayName}${m?.provider?.providerName
                           ? " (" + m?.provider?.providerName + ")"
                           : ""
@@ -2254,7 +2255,7 @@ function _Chat() {
                         session.mask.syncGlobalConfig = false;
                       });
                       if (providerName == "ByteDance") {
-                        const selectedModel = models.find(
+                        const selectedModel = formattedModels.find(
                           (m) =>
                             m.name == model &&
                             m?.provider?.providerName == providerName,

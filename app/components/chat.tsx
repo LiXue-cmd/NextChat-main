@@ -558,6 +558,7 @@ export function ChatActions(props: {
     return props.models.find(m =>
       m.name === currentModel && m.provider.providerName === currentProviderName
     )?.displayName || "";
+    console.log('props.models',props.models)
   }, [props.models, currentModel, currentProviderName]);
 
   const [showModelSelector, setShowModelSelector] = useState(false);
@@ -579,6 +580,7 @@ export function ChatActions(props: {
 
   // 修改后的 useEffect，确保 models 状态已定义
   useEffect(() => {
+    console.log('props.models',props.models)
     // 检查 props.models 是否为 undefined
     const isUnavailableModel = props.models?.some(m => m.name === currentModel) === false;
 
@@ -590,6 +592,7 @@ export function ChatActions(props: {
         session.mask.syncGlobalConfig = false;
       });
     }
+    console.log('props.models',props.models)
   }, [props.models, currentModel, chatStore, session]); // 确保依赖项中的 models 已定义
 
   return (
@@ -1008,10 +1011,13 @@ function _Chat() {
 
   // 替换原有的models定义，使用groups映射
   const formattedModels: Model[] = useMemo(() => {
+    console.log('groups',groups)
     return groups.map(model => ({
       name: model.name, // 模型ID
-      displayName: model.displayName || model.name, // 使用正确的显示名称（假设model有displayName字段）
+      displayName: model.displayName,
+      // displayName: model.type, // 使用正确的显示名称（假设model有displayName字段）
       available: model.isEnable === "1", // 可用性状态
+      avatarUrl: model.avatarUrl || '',
       provider: {
         providerName: model.type || ServiceProvider.OpenAI // 服务提供商类型
       }
@@ -1024,6 +1030,7 @@ function _Chat() {
     session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
   // 使用formattedModels替换原来的models
   const currentModelName = useMemo(() => {
+    console.log("formattedModels", formattedModels);
     const model = formattedModels.find(
       (m) =>
         m.name === currentModel && 
@@ -1136,7 +1143,6 @@ function _Chat() {
       setModifiedInput('')
     } else {
       if (text.includes("@") && !modifiedInput) {
-        console.log('true')
         setShowModelSelector(true);
       } else {
         console.log('false')
@@ -1181,6 +1187,7 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
+
     chatStore
       .onUserInput(userInput, attachImages)
       .then(() => setIsLoading(false));
@@ -1965,6 +1972,7 @@ function _Chat() {
                                     chatStore.updateTargetSession(
                                       session,
                                       (session) => {
+                                        console.log('session',session)
                                         const m = session.mask.context
                                           .concat(session.messages)
                                           .find((m) => m.id === message.id);
@@ -1981,7 +1989,7 @@ function _Chat() {
                               ) : (
                                 <>
                                   {["system"].includes(message.role) ? (
-                                    <Avatar avatar="2699-fe0f" />
+                                     <Avatar avatar="2699-fe0f" />
                                   ) : (
                                     <MaskAvatar
                                       avatar={session.mask.avatar}
@@ -1989,6 +1997,7 @@ function _Chat() {
                                         message.model ||
                                         session.mask.modelConfig.model
                                       }
+                                      style={{ border: "6px solid green" }}
                                     />
                                   )}
                                 </>
@@ -2238,16 +2247,19 @@ function _Chat() {
                   <Selector
                     defaultSelectedValue={`${currentModel}@${currentProviderName}`}
                     items={formattedModels.map((m) => ({
-                      title: `${m.displayName}${m?.provider?.providerName
-                          ? " (" + m?.provider?.providerName + ")"
+                      title: `${m.name}${m?.displayName
+                          ? " (" + m?.displayName + ")"
                           : ""
                         }`,
-                      value: `${m.name}@${m?.provider?.providerName}`,
+                      value: `${m.name}@${m?.displayName}`,
+                      avatar: m.avatarUrl, // 新增avatar字段传递
                     }))}
                     onClose={() => setShowModelSelector(false)}
                     onSelection={(s) => {
                       if (s.length === 0) return;
                       const [model, providerName] = getModelProvider(s[0]);
+                      console.log('model',model)
+                      console.log('providerName',providerName)
                       chatStore.updateTargetSession(session, (session) => {
                         session.mask.modelConfig.model = model as ModelType;
                         session.mask.modelConfig.providerName =

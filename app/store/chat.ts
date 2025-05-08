@@ -70,6 +70,9 @@ export type ChatMessage = RequestMessage & {
   tools?: ChatMessageTool[];
   audio_url?: string;
   isMcpResponse?: boolean;
+  role: "user" | "assistant" | "system";
+  content: string | MultimodalContent[];
+  avatar?: string; // ✅ 新增头像字段
 };
 
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {

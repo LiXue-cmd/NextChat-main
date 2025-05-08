@@ -701,8 +701,8 @@ export function ChatActions(props: {
             // 修改：使用接口返回的 models 生成选项
             items={props.models.map(m => ({
               title: `${m.displayName} (${m.provider.providerName})`,
-              // value: `${m.name}@${m.provider.providerName}`,
-              value:`${m.avatarUrl}`
+              value: `${m.name}@${m.provider.providerName}`,
+              // value:`${m.avatarUrl}`
             }))}
             onClose={() => setShowModelSelector(false)}
             onSelection={(s) => {
